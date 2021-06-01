@@ -69,6 +69,10 @@ options:
      - Max duration of the waiting period (seconds).
      default: 500
      type: int
+   datacenter:
+     description:
+     - Destination datacenter for the deploy operation
+     type: str
 extends_documentation_fragment:
 - community.vmware.vmware.documentation
 
@@ -165,6 +169,7 @@ def main():
         moid=dict(type='str'),
         use_instance_uuid=dict(type='bool', default=False),
         timeout=dict(type='int', default=500),
+        datacenter=dict(type='str'),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
