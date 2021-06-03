@@ -71,7 +71,8 @@ options:
      type: int
    datacenter:
      description:
-     - Destination datacenter for the deploy operation
+     - Name of the datacenter.
+     - The datacenter to search for a virtual machine.
      type: str
 extends_documentation_fragment:
 - community.vmware.vmware.documentation
