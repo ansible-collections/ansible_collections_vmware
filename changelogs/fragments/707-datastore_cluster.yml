@@ -1,0 +1,2 @@
+bugfixes:
+- vmware_content_deploy_template - use datacenter instead of datastore to get information about datastoreFolder (https://github.com/ansible-collections/community.vmware/issues/707).
