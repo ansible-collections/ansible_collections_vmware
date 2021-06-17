@@ -1,0 +1,24 @@
+---
+namespace: {{ collection_namespace }}
+name: {{ collection_name }}
+# the version key is generated during the release by Zuul
+# https://github.com/ansible-network/releases/tree/master/ansible_releases/cmd
+# A script based on https://pypi.org/project/pbr/ will generate the version
+# key. The version value depends on the tag or the last git tag.
+version: {{ collection_version }}
+readme: README.md
+authors:
+    - Ansible (https://github.com/ansible)
+description:
+build_ignore:
+- galaxy.yml.j2
+- release.yml
+license_file: LICENSE
+tags:
+  - cloud
+  - vmware
+  - virtualization
+dependencies: {}
+repository: {{ collection_repo }}.git
+homepage: {{ collection_repo }}
+issues: {{ collection_repo }}/issues
