@@ -151,7 +151,7 @@ options:
          description:
            - Disk Unit Number.
            - Valid value range from 0 to 15, except 7 for SCSI Controller.
-           - Valid value rante from 0 to 64, except 7 for Paravirtual SCSI Controller on Virtual Hardware version 14 or higher
+           - Valid value range from 0 to 64, except 7 for Paravirtual SCSI Controller on Virtual Hardware version 14 or higher
            - Valid value range from 0 to 29 for SATA controller.
            - Valid value range from 0 to 14 for NVME controller.
          type: int
@@ -610,7 +610,7 @@ class PyVmomiHelper(PyVmomi):
             if not ctl_found and disk['state'] == 'present':
                 # Create new controller
                 if disk['controller_type'] in self.device_helper.scsi_device_type.keys():
-                    ctl_spec = self.device_helper.create_scsi_controller(disk['controller_type'], disk['controller_number'],disk['bus_sharing'])
+                    ctl_spec = self.device_helper.create_scsi_controller(disk['controller_type'], disk['controller_number'], disk['bus_sharing'])
                 elif disk['controller_type'] == 'sata':
                     ctl_spec = self.device_helper.create_sata_controller(disk['controller_number'])
                 elif disk['controller_type'] == 'nvme':
@@ -719,7 +719,6 @@ class PyVmomiHelper(PyVmomi):
             if disk_change:
                 # Adding multiple disks in a single attempt raises weird errors
                 # So adding single disk at a time.
-                
                 self.reconfigure_vm(self.config_spec, 'disks')
                 self.config_spec = vim.vm.ConfigSpec()
                 self.config_spec.deviceChange = []
@@ -799,22 +798,22 @@ class PyVmomiHelper(PyVmomi):
                 if current_disk['controller_type'] == 'paravirtual' and hw_version >= 14:
                     if temp_disk_unit_number not in range(0, 64):
                         self.module.fail_json(msg="Invalid Disk unit number ID specified for disk [%s] at index [%s],"
-                                                " please specify value between 0 to 64 only (excluding 7)."
-                                                % (temp_disk_unit_number, disk_index))
+                                                  " please specify value between 0 to 64 only (excluding 7)."
+                                                  % (temp_disk_unit_number, disk_index))
                     if temp_disk_unit_number == 7:
                         self.module.fail_json(msg="Invalid Disk unit number ID specified for disk at index [%s], please"
-                                                " specify value other than 7 as it is reserved for SCSI Controller."
-                                                % disk_index)
+                                                  " specify value other than 7 as it is reserved for SCSI Controller."
+                                                  % disk_index)
 
                 else:
                     if temp_disk_unit_number not in range(0, 16):
                         self.module.fail_json(msg="Invalid Disk unit number ID specified for disk [%s] at index [%s],"
-                                                " please specify value between 0 to 15 only (excluding 7)."
-                                                % (temp_disk_unit_number, disk_index))
+                                                  " please specify value between 0 to 15 only (excluding 7)."
+                                                  % (temp_disk_unit_number, disk_index))
                     if temp_disk_unit_number == 7:
                         self.module.fail_json(msg="Invalid Disk unit number ID specified for disk at index [%s], please"
-                                                " specify value other than 7 as it is reserved for SCSI Controller."
-                                                % disk_index)
+                                                  " specify value other than 7 as it is reserved for SCSI Controller."
+                                                  % disk_index)
             elif current_disk['controller_type'] == 'sata' and temp_disk_unit_number not in range(0, 30):
                 self.module.fail_json(msg="Invalid Disk unit number ID specified for SATA disk [%s] at index [%s],"
                                           " please specify value between 0 to 29" % (temp_disk_unit_number, disk_index))
@@ -921,7 +920,6 @@ class PyVmomiHelper(PyVmomi):
                         self.module.fail_json(msg="%s is not a supported unit for disk size for disk index [%s]."
                                                   " Supported units are ['%s']." % (unit, disk_index, "', '".join(disk_units.keys())))
                 elif current_disk['filename'] is None and disk['type'] != 'rdm':
-
                     # No size found but disk, fail. Excepting RDMs because the cluster_disk will need a filename.
                     self.module.fail_json(msg="No size, size_kb, size_mb, size_gb or size_tb"
                                               " attribute found into disk index [%s] configuration." % disk_index)
