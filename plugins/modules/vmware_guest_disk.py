@@ -106,21 +106,26 @@ options:
          type: str
          choices: ['persistent', 'independent_persistent', 'independent_nonpersistent']
        rdm_path:
-         description:
+         description: 
          - Path of LUN for Raw Device Mapping required for disk type C(rdm).
-         - Only valid is C(type) is set to C(rdm).
+         - Only valid if C(type) is set to C(rdm).
          type: str
-         version_added: '1.12.0'
+       cluster_disk:
+         description: 
+           - This value allows for the sharing of an RDM between two machines. 
+           - The primary machine holding the RDM uses the default False. 
+           - The secondary machine holding the RDM uses True
+         type: bool
+         default: False
        compatibility_mode:
          description: Compatibility mode for raw devices. Required for disk type 'rdm'
          type: str
          choices: ['physicalMode','virtualMode']
        sharing:
          description:
-           - This parameter is not available for Raw Device Mapping(RDM).
            - The sharing mode of the virtual disk.
            - Setting sharing means that multiple virtual machines can write to the virtual disk.
-           - Sharing can only be set if C(type) is set to C(eagerzeroedthick).
+           - Sharing can only be set if C(type) is set to C(eagerzeroedthick)or C(rdm).
          type: bool
          default: False
        datastore:
@@ -135,10 +140,18 @@ options:
            - Care should be taken while specifying 'scsi_controller' is 0 and 'unit_number' as 0 as this disk may contain OS.
          type: int
          choices: [0, 1, 2, 3]
+       bus_sharing: 
+         description:
+           - Only functions with Paravirtual SCSI Controller
+           - Allows for the sharing of the scsi bus between two virtual machines.
+         type: str
+         choices: ['noSharing', 'physicalSharing', 'virtualSharing']
+         default: 'noSharing'
        unit_number:
          description:
            - Disk Unit Number.
            - Valid value range from 0 to 15, except 7 for SCSI Controller.
+           - Valid value rante from 0 to 64, except 7 for Paravirtual SCSI Controller on Virtual Hardware version 14 or higher
            - Valid value range from 0 to 29 for SATA controller.
            - Valid value range from 0 to 14 for NVME controller.
          type: int
@@ -427,6 +440,8 @@ try:
 except ImportError:
     pass
 
+
+
 from random import randint
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
@@ -509,7 +524,7 @@ class PyVmomiHelper(PyVmomi):
             changed, results = wait_for_task(task)
         except vim.fault.InvalidDeviceSpec as invalid_device_spec:
             self.module.fail_json(msg="Failed to manage '%s' on given virtual machine due to invalid"
-                                      " device spec : %s" % (device_type, to_native(invalid_device_spec.msg)),
+                                  " device spec : %s" % (device_type, to_native(invalid_device_spec.msg)),
                                   details="Please check ESXi server logs for more details.")
         except vim.fault.RestrictedVersion as e:
             self.module.fail_json(msg="Failed to reconfigure virtual machine due to"
@@ -552,7 +567,7 @@ class PyVmomiHelper(PyVmomi):
         sharing = disk.get('sharing')
         if sharing and disk_type != 'eagerzeroedthick' and disk_type != 'rdm':
             self.module.fail_json(msg="Invalid 'sharing' mode specified for disk index [%s]. 'disk_mode'"
-                                      " must be 'eagerzeroedthick' when 'sharing'." % disk_index)
+                                      " must be 'eagerzeroedthick' or 'rdm' when 'sharing'." % disk_index)
         if sharing:
             sharing_mode = 'sharingMultiWriter'
         else:
@@ -595,7 +610,7 @@ class PyVmomiHelper(PyVmomi):
             if not ctl_found and disk['state'] == 'present':
                 # Create new controller
                 if disk['controller_type'] in self.device_helper.scsi_device_type.keys():
-                    ctl_spec = self.device_helper.create_scsi_controller(disk['controller_type'], disk['controller_number'])
+                    ctl_spec = self.device_helper.create_scsi_controller(disk['controller_type'], disk['controller_number'],disk['bus_sharing'])
                 elif disk['controller_type'] == 'sata':
                     ctl_spec = self.device_helper.create_sata_controller(disk['controller_number'])
                 elif disk['controller_type'] == 'nvme':
@@ -663,9 +678,13 @@ class PyVmomiHelper(PyVmomi):
                         disk_spec = self.create_disk(device.key, disk)
                         # get Storage DRS recommended datastore from the datastore cluster
                         if disk['disk_type'] == 'rdm':
-                            # RDM still requires a creation operation but adding filename and datastore seem to break it.
-                            # So let VMWare handle it for now.
-                            disk_spec.fileOperation = vim.vm.device.VirtualDeviceSpec.FileOperation.create
+                            #Since RDMs can be shared between two machines cluster_disk with rdm will 
+                            #invoke a copy of the existing disk instead of trying to create a new one which causes
+                            #file lock issues in VSphere. This ensures we dont add a "create" operation.
+                            if disk['filename'] is not None and disk['cluster_disk'] == True:
+                                disk_spec.device.backing.fileName = disk['filename']
+                            else:
+                                disk_spec.fileOperation = vim.vm.device.VirtualDeviceSpec.FileOperation.create
                         else:
                             if disk['filename'] is None:
                                 if disk['datastore_cluster'] is not None:
@@ -700,7 +719,7 @@ class PyVmomiHelper(PyVmomi):
             if disk_change:
                 # Adding multiple disks in a single attempt raises weird errors
                 # So adding single disk at a time.
-
+                
                 self.reconfigure_vm(self.config_spec, 'disks')
                 self.config_spec = vim.vm.ConfigSpec()
                 self.config_spec.deviceChange = []
@@ -734,7 +753,9 @@ class PyVmomiHelper(PyVmomi):
                                 controller_number=0,
                                 disk_mode='persistent',
                                 disk_type='thick',
-                                sharing=False)
+                                sharing=False,
+                                bus_sharing='noSharing',
+                                cluster_disk=False)
             # Check state
             if disk['state'] is not None:
                 current_disk['state'] = disk['state']
@@ -772,14 +793,28 @@ class PyVmomiHelper(PyVmomi):
                 self.module.fail_json(msg="Invalid Disk unit number ID '%s' specified at index [%s]."
                                           % (disk['unit_number'], disk_index))
             if current_disk['controller_type'] in self.device_helper.scsi_device_type.keys():
-                if temp_disk_unit_number not in range(0, 16):
-                    self.module.fail_json(msg="Invalid Disk unit number ID specified for disk [%s] at index [%s],"
-                                              " please specify value between 0 to 15 only (excluding 7)."
-                                              % (temp_disk_unit_number, disk_index))
-                if temp_disk_unit_number == 7:
-                    self.module.fail_json(msg="Invalid Disk unit number ID specified for disk at index [%s], please"
-                                              " specify value other than 7 as it is reserved for SCSI Controller."
-                                              % disk_index)
+                #the Paravirtual SCSI Controller Supports up to 64 disks in vSphere 6.7. Using hardware
+                #version 14 or higher from the vm config should catch this appropriately. 
+                hw_version = int(self.vm.config.version.split('-')[1])
+                if current_disk['controller_type'] == 'paravirtual' and hw_version >= 14:
+                    if temp_disk_unit_number not in range(0, 64):
+                        self.module.fail_json(msg="Invalid Disk unit number ID specified for disk [%s] at index [%s],"
+                                                " please specify value between 0 to 64 only (excluding 7)."
+                                                % (temp_disk_unit_number, disk_index))
+                    if temp_disk_unit_number == 7:
+                        self.module.fail_json(msg="Invalid Disk unit number ID specified for disk at index [%s], please"
+                                                " specify value other than 7 as it is reserved for SCSI Controller."
+                                                % disk_index)
+
+                else:
+                    if temp_disk_unit_number not in range(0, 16):
+                        self.module.fail_json(msg="Invalid Disk unit number ID specified for disk [%s] at index [%s],"
+                                                " please specify value between 0 to 15 only (excluding 7)."
+                                                % (temp_disk_unit_number, disk_index))
+                    if temp_disk_unit_number == 7:
+                        self.module.fail_json(msg="Invalid Disk unit number ID specified for disk at index [%s], please"
+                                                " specify value other than 7 as it is reserved for SCSI Controller."
+                                                % disk_index)
             elif current_disk['controller_type'] == 'sata' and temp_disk_unit_number not in range(0, 30):
                 self.module.fail_json(msg="Invalid Disk unit number ID specified for SATA disk [%s] at index [%s],"
                                           " please specify value between 0 to 29" % (temp_disk_unit_number, disk_index))
@@ -885,8 +920,9 @@ class PyVmomiHelper(PyVmomi):
                     else:
                         self.module.fail_json(msg="%s is not a supported unit for disk size for disk index [%s]."
                                                   " Supported units are ['%s']." % (unit, disk_index, "', '".join(disk_units.keys())))
-                elif current_disk['filename'] is None and disk.get('type') != 'rdm':
-                    # No size found but disk, fail
+                elif current_disk['filename'] is None and disk['type'] != 'rdm':
+
+                    # No size found but disk, fail. Excepting RDMs because the cluster_disk will need a filename.
                     self.module.fail_json(msg="No size, size_kb, size_mb, size_gb or size_tb"
                                               " attribute found into disk index [%s] configuration." % disk_index)
 
@@ -913,10 +949,27 @@ class PyVmomiHelper(PyVmomi):
                     current_disk['compatibility_mode'] = compatibility_mode
 
                     # RDMs need a path
-                    if 'rdm_path' not in disk:
-                        self.module.fail_json(msg="rdm_path needs must be specified when using disk type 'rdm' for disk index [%s]" % disk_index)
+                    if 'rdm_path'not in disk and 'filename' not in disk:
+                        self.module.fail_json(msg="rdm_path and/or 'filename' needs must be specified when using disk type 'rdm'"
+                                              "for disk index [%s]" % disk_index)
                     else:
                         current_disk['rdm_path'] = disk.get('rdm_path')
+
+                    if disk['filename'] and disk['rdm_path'] is None and disk['cluster_disk'] == False:
+                        self.module.fail_json(msg=" 'filename' requires setting 'cluster_disk' to True when using disk type 'rdm' without a"
+                                              "'rdm_path' for disk index [%s]" % disk_index)
+                    else:
+                        current_disk['cluster_disk'] = disk.get('cluster_disk')
+                        
+                  
+
+                #Enable Physical or virtuals SCSI Bus Sharing
+                if disk['bus_sharing']:
+                    bus_sharing = disk.get('bus_sharing', 'noSharing')
+                    if bus_sharing not in ['noSharing', 'physicalSharing', 'virtualSharing']:
+                        self.module.fail_json(msg="Invalid SCSI 'bus_sharing' specied for disk index [%s]. Please specify"
+                                              "'bus_sharing' value from['noSharing', 'physicalSharing', 'virtualSharing']." %disk_index )
+                    current_disk['bus_sharing'] = bus_sharing
 
             disks_data.append(current_disk)
         return disks_data
@@ -1056,6 +1109,8 @@ def main():
                 state=dict(type='str', default='present', choices=['present', 'absent']),
                 controller_type=dict(type='str', choices=['buslogic', 'lsilogic', 'paravirtual', 'lsilogicsas', 'sata', 'nvme']),
                 controller_number=dict(type='int', choices=[0, 1, 2, 3]),
+                bus_sharing=dict(type=str,choices=['noSharing', 'physicalSharing', 'virtualSharing'],default='noSharing'),
+                cluster_disk=dict(type=bool, default=False),
                 iolimit=dict(
                     type='dict',
                     options=dict(
