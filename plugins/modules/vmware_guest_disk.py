@@ -712,10 +712,10 @@ class PyVmomiHelper(PyVmomi):
                         disk_spec = self.create_disk(device.key, disk)
                         # get Storage DRS recommended datastore from the datastore cluster
                         if disk['disk_type'] == 'rdm':
-                            # Since RDMs can be shared between two machines cluster_disk with rdm will 
+                            # Since RDMs can be shared between two machines cluster_disk with rdm will
                             # invoke a copy of the existing disk instead of trying to create a new one which causes
                             # file lock issues in VSphere. This ensures we dont add a "create" operation.
-                            if disk['filename'] is not None and disk['cluster_disk'] == True:
+                            if disk['filename'] is not None and disk['cluster_disk'] is True:
                                 disk_spec.device.backing.fileName = disk['filename']
                             else:
                                 disk_spec.fileOperation = vim.vm.device.VirtualDeviceSpec.FileOperation.create
