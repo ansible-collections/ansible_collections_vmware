@@ -828,8 +828,8 @@ class PyVmomiHelper(PyVmomi):
                 self.module.fail_json(msg="Invalid Disk unit number ID '%s' specified at index [%s]."
                                           % (disk['unit_number'], disk_index))
             if current_disk['controller_type'] in self.device_helper.scsi_device_type.keys():
-                #the Paravirtual SCSI Controller Supports up to 64 disks in vSphere 6.7. Using hardware
-                #version 14 or higher from the vm config should catch this appropriately. 
+                # the Paravirtual SCSI Controller Supports up to 64 disks in vSphere 6.7. Using hardware
+                # version 14 or higher from the vm config should catch this appropriately. 
                 hw_version = int(self.vm.config.version.split('-')[1])
                 if current_disk['controller_type'] == 'paravirtual' and hw_version >= 14:
                     if temp_disk_unit_number not in range(0, 64):
@@ -989,20 +989,18 @@ class PyVmomiHelper(PyVmomi):
                     else:
                         current_disk['rdm_path'] = disk.get('rdm_path')
 
-                    if disk['filename'] and disk['rdm_path'] is None and disk['cluster_disk'] == False:
+                    if disk['filename'] and disk['rdm_path'] is None and disk['cluster_disk'] is False:
                         self.module.fail_json(msg=" 'filename' requires setting 'cluster_disk' to True when using disk type 'rdm' without a"
                                               "'rdm_path' for disk index [%s]" % disk_index)
                     else:
                         current_disk['cluster_disk'] = disk.get('cluster_disk')
-                        
-                  
 
-                #Enable Physical or virtuals SCSI Bus Sharing
+                # Enable Physical or virtuals SCSI Bus Sharing
                 if disk['bus_sharing']:
                     bus_sharing = disk.get('bus_sharing', 'noSharing')
                     if bus_sharing not in ['noSharing', 'physicalSharing', 'virtualSharing']:
                         self.module.fail_json(msg="Invalid SCSI 'bus_sharing' specied for disk index [%s]. Please specify"
-                                              "'bus_sharing' value from['noSharing', 'physicalSharing', 'virtualSharing']." %disk_index )
+                                              "'bus_sharing' value from['noSharing', 'physicalSharing', 'virtualSharing']." % disk_index)
                     current_disk['bus_sharing'] = bus_sharing
 
             disks_data.append(current_disk)
@@ -1143,7 +1141,7 @@ def main():
                 state=dict(type='str', default='present', choices=['present', 'absent']),
                 controller_type=dict(type='str', choices=['buslogic', 'lsilogic', 'paravirtual', 'lsilogicsas', 'sata', 'nvme']),
                 controller_number=dict(type='int', choices=[0, 1, 2, 3]),
-                bus_sharing=dict(type=str,choices=['noSharing', 'physicalSharing', 'virtualSharing'],default='noSharing'),
+                bus_sharing=dict(type=str, choices=['noSharing', 'physicalSharing', 'virtualSharing'], default='noSharing'),
                 cluster_disk=dict(type=bool, default=False),
                 iolimit=dict(
                     type='dict',
