@@ -106,14 +106,14 @@ options:
          type: str
          choices: ['persistent', 'independent_persistent', 'independent_nonpersistent']
        rdm_path:
-         description: 
+         description:
          - Path of LUN for Raw Device Mapping required for disk type C(rdm).
          - Only valid if C(type) is set to C(rdm).
          type: str
        cluster_disk:
-         description: 
-           - This value allows for the sharing of an RDM between two machines. 
-           - The primary machine holding the RDM uses the default False. 
+         description:
+           - This value allows for the sharing of an RDM between two machines.
+           - The primary machine holding the RDM uses the default False.
            - The secondary machine holding the RDM uses True
          type: bool
          default: False
@@ -140,7 +140,7 @@ options:
            - Care should be taken while specifying 'scsi_controller' is 0 and 'unit_number' as 0 as this disk may contain OS.
          type: int
          choices: [0, 1, 2, 3]
-       bus_sharing: 
+       bus_sharing:
          description:
            - Only functions with Paravirtual SCSI Controller
            - Allows for the sharing of the scsi bus between two virtual machines.
@@ -316,7 +316,7 @@ EXAMPLES = r'''
         compatibility_mode: 'virtualMode'
         disk_mode: 'persistent'
 
-- name: Add raw device mapping to virtual machine with Physical bus sharing 
+- name: Add raw device mapping to virtual machine with Physical bus sharing
   community.vmware.vmware_guest_disk:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
@@ -475,8 +475,6 @@ try:
     from pyVmomi import vim
 except ImportError:
     pass
-
-
 
 from random import randint
 from ansible.module_utils.basic import AnsibleModule
@@ -714,9 +712,9 @@ class PyVmomiHelper(PyVmomi):
                         disk_spec = self.create_disk(device.key, disk)
                         # get Storage DRS recommended datastore from the datastore cluster
                         if disk['disk_type'] == 'rdm':
-                            #Since RDMs can be shared between two machines cluster_disk with rdm will 
-                            #invoke a copy of the existing disk instead of trying to create a new one which causes
-                            #file lock issues in VSphere. This ensures we dont add a "create" operation.
+                            # Since RDMs can be shared between two machines cluster_disk with rdm will 
+                            # invoke a copy of the existing disk instead of trying to create a new one which causes
+                            # file lock issues in VSphere. This ensures we dont add a "create" operation.
                             if disk['filename'] is not None and disk['cluster_disk'] == True:
                                 disk_spec.device.backing.fileName = disk['filename']
                             else:
@@ -829,7 +827,7 @@ class PyVmomiHelper(PyVmomi):
                                           % (disk['unit_number'], disk_index))
             if current_disk['controller_type'] in self.device_helper.scsi_device_type.keys():
                 # the Paravirtual SCSI Controller Supports up to 64 disks in vSphere 6.7. Using hardware
-                # version 14 or higher from the vm config should catch this appropriately. 
+                # version 14 or higher from the vm config should catch this appropriately.
                 hw_version = int(self.vm.config.version.split('-')[1])
                 if current_disk['controller_type'] == 'paravirtual' and hw_version >= 14:
                     if temp_disk_unit_number not in range(0, 64):
