@@ -316,6 +316,42 @@ EXAMPLES = r'''
         compatibility_mode: 'virtualMode'
         disk_mode: 'persistent'
 
+- name: Add raw device mapping to virtual machine with Physical bus sharing 
+  community.vmware.vmware_guest_disk:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter_name }}"
+    validate_certs: no
+    name: "Test_VM"
+    disk:
+      - type: rdm
+        state: present
+        scsi_controller: 1
+        unit_number: 5
+        rdm_path: /vmfs/devices/disks/naa.060000003b1234efb453
+        compatibility_mode: 'virtualMode'
+        disk_mode: 'persistent'
+        bus_sharing: physicalSharing
+
+- name: Add raw device mapping to virtual machine with Physical bus sharing and clustered disk
+  community.vmware.vmware_guest_disk:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter_name }}"
+    validate_certs: no
+    name: "Test_VM"
+    disk:
+      - type: rdm
+        state: present
+        scsi_controller: 1
+        unit_number: 5
+        compatibility_mode: 'virtualMode'
+        disk_mode: 'persistent'
+        bus_sharing: physicalSharing
+        filename: "[datastore1] path/to/rdm/disk-marker.vmdk"
+
 - name: create new disk with custom IO limits and shares in IO Limits
   community.vmware.vmware_guest_disk:
     hostname: "{{ vcenter_hostname }}"
