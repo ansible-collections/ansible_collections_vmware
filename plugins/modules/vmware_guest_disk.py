@@ -524,8 +524,8 @@ class PyVmomiHelper(PyVmomi):
             changed, results = wait_for_task(task)
         except vim.fault.InvalidDeviceSpec as invalid_device_spec:
             self.module.fail_json(msg="Failed to manage '%s' on given virtual machine due to invalid"
-                                  " device spec : %s" % (device_type, to_native(invalid_device_spec.msg)),
-                                  details="Please check ESXi server logs for more details.")
+                                      " device spec : %s" % (device_type, to_native(invalid_device_spec.msg)),
+                                      details="Please check ESXi server logs for more details.")
         except vim.fault.RestrictedVersion as e:
             self.module.fail_json(msg="Failed to reconfigure virtual machine due to"
                                       " product versioning restrictions: %s" % to_native(e.msg))
