@@ -1139,8 +1139,8 @@ def main():
                 state=dict(type='str', default='present', choices=['present', 'absent']),
                 controller_type=dict(type='str', choices=['buslogic', 'lsilogic', 'paravirtual', 'lsilogicsas', 'sata', 'nvme']),
                 controller_number=dict(type='int', choices=[0, 1, 2, 3]),
-                bus_sharing=dict(type=str, choices=['noSharing', 'physicalSharing', 'virtualSharing'], default='noSharing'),
-                cluster_disk=dict(type=bool, default=False),
+                bus_sharing=dict(type='str', choices=['noSharing', 'physicalSharing', 'virtualSharing'], default='noSharing'),
+                cluster_disk=dict(type='bool', default=False),
                 iolimit=dict(
                     type='dict',
                     options=dict(
