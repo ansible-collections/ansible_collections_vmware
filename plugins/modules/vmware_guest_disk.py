@@ -114,7 +114,7 @@ options:
          description:
            - This value allows for the sharing of an RDM between two machines.
            - The primary machine holding the RDM uses the default False.
-           - The secondary machine holding the RDM uses True
+           - The secondary machine holding the RDM uses C(True).
          type: bool
          default: False
        compatibility_mode:
