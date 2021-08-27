@@ -142,7 +142,7 @@ options:
          choices: [0, 1, 2, 3]
        bus_sharing:
          description:
-           - Only functions with Paravirtual SCSI Controller
+           - Only functions with Paravirtual SCSI Controller.
            - Allows for the sharing of the scsi bus between two virtual machines.
          type: str
          choices: ['noSharing', 'physicalSharing', 'virtualSharing']
