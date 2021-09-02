@@ -117,7 +117,7 @@ options:
            - The secondary machine holding the RDM uses C(True).
          type: bool
          default: False
-         version_added: '1.14.0'
+         version_added: '1.15.0'
        compatibility_mode:
          description: Compatibility mode for raw devices. Required for disk type 'rdm'
          type: str
