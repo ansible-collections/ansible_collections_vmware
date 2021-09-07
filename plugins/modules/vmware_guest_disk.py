@@ -113,7 +113,7 @@ options:
        cluster_disk:
          description:
            - This value allows for the sharing of an RDM between two machines.
-           - The primary machine holding the RDM uses the default False.
+           - The primary machine holding the RDM uses the default C(False).
            - The secondary machine holding the RDM uses C(True).
          type: bool
          default: False
