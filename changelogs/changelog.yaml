@@ -541,6 +541,22 @@ releases:
     - 983-vmware.yml
     - migrate_vmware_scenario_guides.yml
     release_date: '2021-08-16'
+  1.14.0:
+    changes:
+      bugfixes:
+      - vmware_category - fixed some issues that the errors have occurred in executing
+        the module (https://github.com/ansible-collections/community.vmware/pull/990).
+      - vmware_guest_network - Fix adding more than one NIC to a VM before powering
+        on (https://github.com/ansible-collections/community.vmware/issues/860).
+      minor_changes:
+      - vmware_host_service_manager - Introducing a new state "unchanged" to allow
+        defining startup policy without defining service state or automatically starting
+        it (https://github.com/ansible-collections/community.vmware/issues/916).
+    fragments:
+    - 860-vmware_guest_network.yml
+    - 916-vmware_host_service_manager.yml
+    - 990-vmware_category.yml
+    release_date: '2021-09-01'
   1.2.0:
     changes:
       bugfixes:

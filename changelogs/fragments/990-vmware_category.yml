@@ -1,0 +1,2 @@
+bugfixes:
+  - vmware_category - fixed some issues that the errors have occurred in executing the module (https://github.com/ansible-collections/community.vmware/pull/990).

@@ -5,6 +5,20 @@ community.vmware Release Notes
 .. contents:: Topics
 
 
+v1.14.0
+=======
+
+Minor Changes
+-------------
+
+- vmware_host_service_manager - Introducing a new state "unchanged" to allow defining startup policy without defining service state or automatically starting it (https://github.com/ansible-collections/community.vmware/issues/916).
+
+Bugfixes
+--------
+
+- vmware_category - fixed some issues that the errors have occurred in executing the module (https://github.com/ansible-collections/community.vmware/pull/990).
+- vmware_guest_network - Fix adding more than one NIC to a VM before powering on (https://github.com/ansible-collections/community.vmware/issues/860).
+
 v1.13.0
 =======
 

@@ -467,7 +467,7 @@ class PyVmomiHelper(PyVmomi):
 
             nic_info_lst.append(d_item)
 
-        nic_info_lst = sorted(nic_info_lst, key=lambda d: d['mac_address'])
+        nic_info_lst = sorted(nic_info_lst, key=lambda d: d['mac_address'] if (d['mac_address'] is not None) else '00:00:00:00:00:00')
         return nic_info_lst, nics
 
     def _get_compute_resource_by_name(self, recurse=True):

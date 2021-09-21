@@ -1,0 +1,2 @@
+minor_changes:
+  - vm_device_helper - move NIC device types from vmware_guest module to vm_device_helper (https://github.com/ansible-collections/community.vmware/pull/998).

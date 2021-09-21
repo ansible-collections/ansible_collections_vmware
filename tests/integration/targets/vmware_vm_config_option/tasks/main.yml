@@ -1,0 +1,117 @@
+# Test code for the vmware_vm_config_option module.
+# Copyright: (c) 2021, VMware, Inc. All Rights Reserved.
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- import_role:
+    name: prepare_vmware_tests
+  vars:
+    setup_attach_host: true
+
+- when: vcsim is not defined
+  block:
+    - name: get list of config option keys from ESXi host
+      community.vmware.vmware_vm_config_option:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ dc1 }}"
+        esxi_hostname: "{{ esxi_hosts[0] }}"
+        get_hardware_versions: true
+      register: config_option_keys_1
+
+    - debug:
+        var: config_option_keys_1
+
+    - name: get list of config option keys from cluster
+      community.vmware.vmware_vm_config_option:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ dc1 }}"
+        cluster_name: "{{ ccr1 }}"
+        get_hardware_versions: true
+      register: config_option_keys_2
+
+    - debug:
+        var: config_option_keys_2
+
+    # Ignore errors due to there is known issue on vSphere 7.0.x
+    # https://github.com/vmware/pyvmomi/issues/915
+    - name: get list of supported guest IDs from ESXi host
+      community.vmware.vmware_vm_config_option:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ dc1 }}"
+        esxi_hostname: "{{ esxi_hosts[0] }}"
+        get_guest_os_ids: true
+      register: guest_ids_1
+      ignore_errors: true
+
+    - debug:
+        var: guest_ids_1
+
+    - name: check guest ID list returned when task not failed
+      assert:
+        that:
+          - "'instance' in guest_ids_1"
+      when:
+        - "'failed' in guest_ids_1"
+        - not guest_ids_1.failed
+
+    - block:
+        # Ignore errors due to there is known issue on vSphere 7.0.x
+        # https://github.com/vmware/pyvmomi/issues/915
+        - name: get list of supported guest IDs from ESXi host with config option key
+          community.vmware.vmware_vm_config_option:
+            validate_certs: false
+            hostname: "{{ vcenter_hostname }}"
+            username: "{{ vcenter_username }}"
+            password: "{{ vcenter_password }}"
+            datacenter: "{{ dc1 }}"
+            esxi_hostname: "{{ esxi_hosts[0] }}"
+            get_guest_os_ids: true
+            hardware_version: "{{ config_option_keys_1['instance']['Supported hardware versions'][0] }}"
+          register: guest_ids_2
+          ignore_errors: true
+
+        - debug:
+            var: guest_ids_2
+        - name: check guest ID list returned when task not failed
+          assert:
+            that:
+              - "'instance' in guest_ids_2"
+          when:
+            - "'failed' in guest_ids_2"
+            - not guest_ids_2.failed
+      when:
+        - "'instance' in config_option_keys_1"
+        - "'Supported hardware versions' in config_option_keys_1['instance']"
+
+    # Ignore errors due to there is known issue on vSphere 7.0.x
+    # https://github.com/vmware/pyvmomi/issues/915
+    - name: get dict of recommended configs for specified guest ID from ESXi host
+      community.vmware.vmware_vm_config_option:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ dc1 }}"
+        esxi_hostname: "{{ esxi_hosts[0] }}"
+        get_config_options: true
+        guest_id: "rhel6_64Guest"
+      register: recommended_configs
+      ignore_errors: true
+
+    - debug:
+        var: recommended_configs
+    - name: check guest ID list returned when task not failed
+      assert:
+        that:
+          - "'instance' in recommended_configs"
+      when:
+        - "'failed' in recommended_configs"
+        - not recommended_configs.failed

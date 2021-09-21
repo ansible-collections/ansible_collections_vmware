@@ -1,0 +1,4 @@
+- hosts: localhost
+  tasks:
+    - name: Update documentation
+      import_tasks: create_documentation.yml

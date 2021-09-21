@@ -6,4 +6,3 @@ pytest-xdist
 # We should avoid these two modules with py3
 pytest-mock
 mock
-pyvmomi

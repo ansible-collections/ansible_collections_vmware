@@ -35,13 +35,21 @@ class PyVmomiDeviceHelper(object):
             'lsilogic': vim.vm.device.VirtualLsiLogicController,
             'paravirtual': vim.vm.device.ParaVirtualSCSIController,
             'buslogic': vim.vm.device.VirtualBusLogicController,
-            'lsilogicsas': vim.vm.device.VirtualLsiLogicSASController,
+            'lsilogicsas': vim.vm.device.VirtualLsiLogicSASController
         }
         self.sata_device_type = vim.vm.device.VirtualAHCIController
         self.nvme_device_type = vim.vm.device.VirtualNVMEController
         self.usb_device_type = {
             'usb2': vim.vm.device.VirtualUSBController,
-            'usb3': vim.vm.device.VirtualUSBXHCIController,
+            'usb3': vim.vm.device.VirtualUSBXHCIController
+        }
+        self.nic_device_type = {
+            'pcnet32': vim.vm.device.VirtualPCNet32,
+            'vmxnet2': vim.vm.device.VirtualVmxnet2,
+            'vmxnet3': vim.vm.device.VirtualVmxnet3,
+            'e1000': vim.vm.device.VirtualE1000,
+            'e1000e': vim.vm.device.VirtualE1000e,
+            'sriov': vim.vm.device.VirtualSriovEthernetCard
         }
 
     def create_scsi_controller(self, scsi_type, bus_number, bus_sharing='noSharing'):
@@ -49,7 +57,7 @@ class PyVmomiDeviceHelper(object):
         Create SCSI Controller with given SCSI Type and SCSI Bus Number
         Args:
             scsi_type: Type of SCSI
-            scsi_bus_number: SCSI Bus number to be assigned
+            bus_number: SCSI Bus number to be assigned
             bus_sharing: noSharing, virtualSharing, physicalSharing
 
         Returns: Virtual device spec for SCSI Controller
@@ -271,23 +279,10 @@ class PyVmomiDeviceHelper(object):
 
         return diskspec
 
-    def get_device(self, device_type, name):
-        nic_dict = dict(pcnet32=vim.vm.device.VirtualPCNet32(),
-                        vmxnet2=vim.vm.device.VirtualVmxnet2(),
-                        vmxnet3=vim.vm.device.VirtualVmxnet3(),
-                        e1000=vim.vm.device.VirtualE1000(),
-                        e1000e=vim.vm.device.VirtualE1000e(),
-                        sriov=vim.vm.device.VirtualSriovEthernetCard(),
-                        )
-        if device_type in nic_dict:
-            return nic_dict[device_type]
-        else:
-            self.module.fail_json(msg='Invalid device_type "%s"'
-                                      ' for network "%s"' % (device_type, name))
-
     def create_nic(self, device_type, device_label, device_infos):
         nic = vim.vm.device.VirtualDeviceSpec()
-        nic.device = self.get_device(device_type, device_infos['name'])
+        nic_device = self.nic_device_type.get(device_type)
+        nic.device = nic_device()
         nic.device.key = -randint(25000, 29999)
         nic.device.wakeOnLanEnabled = bool(device_infos.get('wake_on_lan', True))
         nic.device.deviceInfo = vim.Description()

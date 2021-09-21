@@ -218,12 +218,14 @@ Parameters
                                     <li>restart</li>
                                     <li><div style="color: blue"><b>start</b>&nbsp;&larr;</div></li>
                                     <li>stop</li>
+                                    <li>unchanged</li>
                         </ul>
                 </td>
                 <td>
                         <div>Desired state of service.</div>
                         <div>State value &#x27;start&#x27; and &#x27;present&#x27; has same effect.</div>
                         <div>State value &#x27;stop&#x27; and &#x27;absent&#x27; has same effect.</div>
+                        <div>State value <code>unchanged</code> is added in version 1.14.0 to allow defining startup policy without defining or changing service state.</div>
                 </td>
             </tr>
             <tr>

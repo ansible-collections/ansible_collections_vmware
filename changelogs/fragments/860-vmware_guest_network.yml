@@ -1,0 +1,2 @@
+bugfixes:
+  - vmware_guest_network - Fix adding more than one NIC to a VM before powering on (https://github.com/ansible-collections/community.vmware/issues/860).

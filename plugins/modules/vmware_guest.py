@@ -1705,12 +1705,10 @@ class PyVmomiHelper(PyVmomi):
         if vm is None:
             return device_list
 
-        nw_device_types = (vim.vm.device.VirtualPCNet32, vim.vm.device.VirtualVmxnet2,
-                           vim.vm.device.VirtualVmxnet3, vim.vm.device.VirtualE1000,
-                           vim.vm.device.VirtualE1000e, vim.vm.device.VirtualSriovEthernetCard)
         for device in vm.config.hardware.device:
-            if isinstance(device, nw_device_types):
-                device_list.append(device)
+            for device_type in self.device_helper.nic_device_type.values():
+                if isinstance(device, device_type):
+                    device_list.append(device)
 
         return device_list
 
@@ -1774,12 +1772,10 @@ class PyVmomiHelper(PyVmomi):
                     self.module.fail_json(msg="'ip' is required if 'netmask' is"
                                               " specified under VM network list.")
 
-            validate_device_types = ['pcnet32', 'vmxnet2', 'vmxnet3', 'e1000', 'e1000e', 'sriov']
-            if 'device_type' in network and network['device_type'] not in validate_device_types:
-                self.module.fail_json(msg="Device type specified '%s' is not valid."
-                                          " Please specify correct device"
-                                          " type from ['%s']." % (network['device_type'],
-                                                                  "', '".join(validate_device_types)))
+            if 'device_type' in network and network['device_type'] not in self.device_helper.nic_device_type.keys():
+                self.module.fail_json(msg="Device type specified '%s' is not valid. Please specify correct device type"
+                                          " from ['%s']." % (network['device_type'],
+                                                             "', '".join(self.device_helper.nic_device_type.keys())))
 
             if 'mac' in network and not is_mac(network['mac']):
                 self.module.fail_json(msg="Device MAC address '%s' is invalid."
@@ -1834,11 +1830,11 @@ class PyVmomiHelper(PyVmomi):
                     nic.device.deviceInfo.summary = network_name
                     nic_change_detected = True
                 if 'device_type' in network_devices[key]:
-                    device = self.device_helper.get_device(network_devices[key]['device_type'], network_name)
-                    device_class = type(device)
-                    if not isinstance(nic.device, device_class):
-                        self.module.fail_json(msg="Changing the device type is not possible when interface is already present. "
-                                                  "The failing device type is %s" % network_devices[key]['device_type'])
+                    device = self.device_helper.nic_device_type.get(network_devices[key]['device_type'])
+                    if not isinstance(nic.device, device):
+                        self.module.fail_json(msg="Changing the device type is not possible when interface is already"
+                                                  " present. The failing device type is %s"
+                                                  % network_devices[key]['device_type'])
                 # Changing mac address has no effect when editing interface
                 if 'mac' in network_devices[key] and nic.device.macAddress != current_net_devices[key].macAddress:
                     self.module.fail_json(msg="Changing MAC address has not effect when interface is already present. "

@@ -87,3 +87,37 @@
   assert:
     that:
       - category_change.changed
+
+# Added the test for the PR(https://github.com/ansible-collections/community.vmware/pull/990)
+- name: Create a new category with All objects
+  vmware_category:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    validate_certs: false
+    category_name: 'Sample_cate_0002'
+    category_description: 'sample description'
+    associable_object_types:
+      - All objects
+    state: present
+  register: category_change_all_objects
+
+- name: Assert change is made
+  assert:
+    that:
+      - category_change_all_objects.changed
+
+- name: Delete Sample_cate_0002 category
+  vmware_category:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    validate_certs: false
+    category_name: 'Sample_cate_0002'
+    state: absent
+  register: category_change
+
+- name: Assert change is made
+  assert:
+    that:
+      - category_change.changed

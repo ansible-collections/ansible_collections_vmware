@@ -1,0 +1,12 @@
+- name: Install tox
+  ansible.builtin.pip:
+    name: tox
+
+- name: Rescue docs/docsite
+  ansible.builtin.shell: 'mv ../docs/docsite /tmp'
+
+- name: Refresh the README.md
+  ansible.builtin.shell: tox -e add_docs
+
+- name: Restore docs/docsite
+  ansible.builtin.shell: 'mv /tmp/docsite ../docs'
