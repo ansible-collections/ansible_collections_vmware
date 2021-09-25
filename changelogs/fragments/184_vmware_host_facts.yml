@@ -1,0 +1,2 @@
+minor_changes:
+- vmware_host_facts - add powerstate fact about ESXi hostsystem with note about stale facts (https://github.com/ansible-collections/vmware/issues/184).

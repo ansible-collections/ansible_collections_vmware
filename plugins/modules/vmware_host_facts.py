@@ -9,12 +9,6 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-ANSIBLE_METADATA = {
-    'metadata_version': '1.1',
-    'status': ['preview'],
-    'supported_by': 'community'
-}
-
 DOCUMENTATION = r'''
 ---
 module: vmware_host_facts
@@ -26,6 +20,9 @@ description:
       module will throw an error.
     - VSAN facts added in 2.7 version.
     - SYSTEM fact uuid added in 2.10 version.
+    - Powerstate fact added in VMware collection 1.0.0.
+    - Please note that when ESXi host powerstate is C(poweredOff), facts are returned from vCenter and might be stale.
+      Users are recommended to check powerstate value and take appropriate decision in the playbook.
 author:
     - Wei Gao (@woshihaoren)
 requirements:
@@ -383,6 +380,7 @@ class VMwareHostFactManager(PyVmomi):
             'ansible_uptime': self.host.summary.quickStats.uptime,
             'ansible_in_maintenance_mode': self.host.runtime.inMaintenanceMode,
             'ansible_uuid': self.host.hardware.systemInfo.uuid,
+            'ansible_host_powerstate': self.host.runtime.powerState,
         }
         return facts
 
