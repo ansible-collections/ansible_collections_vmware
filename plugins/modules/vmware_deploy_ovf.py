@@ -87,6 +87,11 @@ options:
         - '   folder: folder1/datacenter1/vm'
         - '   folder: /folder1/datacenter1/vm/folder2'
         type: str
+    enable_hidden_properties:
+        description:
+        - Enable source properties that are marked as ovf:userConfigurable=false
+        default: "no"
+        type: bool
     inject_ovf_env:
         description:
         - Force the given properties to be inserted into an OVF Environment and injected through VMware Tools.
@@ -455,6 +460,10 @@ class VMwareDeployOvf(PyVmomi):
             spec_params
         )
 
+        if self.params['enable_hidden_properties']:
+            for prop in self.import_spec.importSpec.configSpec.vAppConfig.property:
+                prop.info.userConfigurable = True
+
         errors = [to_native(e.msg) for e in getattr(self.import_spec, 'error', [])]
         if self.params['fail_on_spec_warnings']:
             errors.extend(
@@ -664,6 +673,10 @@ def main():
         },
         'deployment_option': {
             'default': None,
+        },
+        'enable_hidden_properties': {
+            'default': False,
+            'type': 'bool',
         },
         'folder': {
             'default': None,
