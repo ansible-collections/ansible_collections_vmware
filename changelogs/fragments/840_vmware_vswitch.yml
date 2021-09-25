@@ -1,0 +1,2 @@
+bugfixes:
+  - update_vswitch - add the possibility to remove nics from vswitch (https://github.com/ansible-collections/community.vmware/issues/536)

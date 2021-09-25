@@ -292,17 +292,24 @@ class VMwareHostVirtualSwitch(PyVmomi):
         """
         results = dict(changed=False, result="No change in vSwitch '%s'" % self.switch)
         vswitch_pnic_info = self.available_vswitches[self.switch]
-        remain_pnic = []
+        pnic_add = []
         for desired_pnic in self.nics:
             if desired_pnic not in vswitch_pnic_info['pnic']:
-                remain_pnic.append(desired_pnic)
-
+                pnic_add.append(desired_pnic)
+        pnic_remove = []
+        for configured_pnic in vswitch_pnic_info['pnic']:
+            if configured_pnic not in self.nics:
+                pnic_remove.append(configured_pnic)
         diff = False
         # Update all nics
         all_nics = vswitch_pnic_info['pnic']
-        if remain_pnic:
-            all_nics += remain_pnic
+        if pnic_add or pnic_remove:
             diff = True
+            if pnic_add:
+                all_nics += pnic_add
+            if pnic_remove:
+                for pnic in pnic_remove:
+                    all_nics.remove(pnic)
 
         if vswitch_pnic_info['mtu'] != self.mtu or \
                 vswitch_pnic_info['num_ports'] != self.number_of_ports:
