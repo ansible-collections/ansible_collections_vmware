@@ -1,0 +1,2 @@
+minor_changes:
+  - vmware_object_role_permission - Implements a new parameter to define MOID value of an object to avoid name duplication issues. (https://github.com/ansible-collections/community.vmware/issues/605).
