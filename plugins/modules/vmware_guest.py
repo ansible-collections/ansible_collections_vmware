@@ -190,7 +190,7 @@ options:
             type: str
             description:
             - The Virtual machine hardware versions.
-            - Default is 10 (ESXi 5.5 and onwards).
+            - Default is C(latest)
             - If set to C(latest), the specified virtual machine will be upgraded to the most current hardware version supported on the host.
             - C(latest) is added in Ansible 2.10.
             - Please check VMware documentation for correct virtual machine hardware version.
@@ -1534,52 +1534,51 @@ class PyVmomiHelper(PyVmomi):
                 self.change_detected = True
 
         temp_version = self.params['hardware']['version']
-        if temp_version is not None:
-            if temp_version.lower() == 'latest':
-                # Check is to make sure vm_obj is not of type template
-                if vm_obj and not vm_obj.config.template:
-                    try:
-                        task = vm_obj.UpgradeVM_Task()
-                        self.wait_for_task(task)
-                        if task.info.state == 'error':
-                            return {'changed': self.change_applied, 'failed': True, 'msg': task.info.error.msg, 'op': 'upgrade'}
-                    except vim.fault.AlreadyUpgraded:
-                        # Don't fail if VM is already upgraded.
-                        pass
-            else:
+        if temp_version.lower() == 'latest':
+            # Check is to make sure vm_obj is not of type template
+            if vm_obj and not vm_obj.config.template:
                 try:
-                    temp_version = int(temp_version)
-                except ValueError:
-                    self.module.fail_json(msg="Failed to set hardware.version '%s' value as valid"
-                                          " values are either 'latest' or a number."
-                                          " Please check VMware documentation for valid VM hardware versions." % temp_version)
+                    task = vm_obj.UpgradeVM_Task()
+                    self.wait_for_task(task)
+                    if task.info.state == 'error':
+                        return {'changed': self.change_applied, 'failed': True, 'msg': task.info.error.msg, 'op': 'upgrade'}
+                except vim.fault.AlreadyUpgraded:
+                    # Don't fail if VM is already upgraded.
+                    pass
+        else:
+            try:
+                temp_version = int(temp_version)
+            except ValueError:
+                self.module.fail_json(msg="Failed to set hardware.version '%s' value as valid"
+                                      " values are either 'latest' or a number."
+                                      " Please check VMware documentation for valid VM hardware versions." % temp_version)
 
-                # Hardware version is denoted as "vmx-10"
-                version = "vmx-%02d" % temp_version
-                self.configspec.version = version
-                if vm_obj is None or self.configspec.version != vm_obj.config.version:
-                    self.change_detected = True
-                # Check is to make sure vm_obj is not of type template
-                if vm_obj and not vm_obj.config.template:
-                    # VM exists and we need to update the hardware version
-                    current_version = vm_obj.config.version
-                    # current_version = "vmx-10"
-                    version_digit = int(current_version.split("-", 1)[-1])
-                    if temp_version < version_digit:
-                        self.module.fail_json(msg="Current hardware version '%d' which is greater than the specified"
-                                              " version '%d'. Downgrading hardware version is"
-                                              " not supported. Please specify version greater"
-                                              " than the current version." % (version_digit,
-                                                                              temp_version))
-                    new_version = "vmx-%02d" % temp_version
-                    try:
-                        task = vm_obj.UpgradeVM_Task(new_version)
-                        self.wait_for_task(task)
-                        if task.info.state == 'error':
-                            return {'changed': self.change_applied, 'failed': True, 'msg': task.info.error.msg, 'op': 'upgrade'}
-                    except vim.fault.AlreadyUpgraded:
-                        # Don't fail if VM is already upgraded.
-                        pass
+            # Hardware version is denoted as "vmx-10"
+            version = "vmx-%02d" % temp_version
+            self.configspec.version = version
+            if vm_obj is None or self.configspec.version != vm_obj.config.version:
+                self.change_detected = True
+            # Check is to make sure vm_obj is not of type template
+            if vm_obj and not vm_obj.config.template:
+                # VM exists and we need to update the hardware version
+                current_version = vm_obj.config.version
+                # current_version = "vmx-10"
+                version_digit = int(current_version.split("-", 1)[-1])
+                if temp_version < version_digit:
+                    self.module.fail_json(msg="Current hardware version '%d' which is greater than the specified"
+                                          " version '%d'. Downgrading hardware version is"
+                                          " not supported. Please specify version greater"
+                                          " than the current version." % (version_digit,
+                                                                          temp_version))
+                new_version = "vmx-%02d" % temp_version
+                try:
+                    task = vm_obj.UpgradeVM_Task(new_version)
+                    self.wait_for_task(task)
+                    if task.info.state == 'error':
+                        return {'changed': self.change_applied, 'failed': True, 'msg': task.info.error.msg, 'op': 'upgrade'}
+                except vim.fault.AlreadyUpgraded:
+                    # Don't fail if VM is already upgraded.
+                    pass
 
         secure_boot = self.params['hardware']['secure_boot']
         if secure_boot is not None:
@@ -3306,7 +3305,7 @@ def main():
                 num_cpus=dict(type='int'),
                 scsi=dict(type='str', choices=['buslogic', 'lsilogic', 'lsilogicsas', 'paravirtual']),
                 secure_boot=dict(type='bool'),
-                version=dict(type='str'),
+                version=dict(type='str', default='latest'),
                 virt_based_security=dict(type='bool'),
                 iommu=dict(type='bool')
             )),
