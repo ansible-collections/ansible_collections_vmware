@@ -105,7 +105,7 @@ EXAMPLES = r'''
     datacenter: DC1 Someplace
     datastore: datastore1
     path: some/remote/file
-    state: touch
+    state: file
   delegate_to: localhost
   ignore_errors: true
 
