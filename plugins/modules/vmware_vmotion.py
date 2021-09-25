@@ -75,6 +75,15 @@ options:
       - if not passed, resource_pool object will be retrived from host_obj parent.
       aliases: ['resource_pool']
       type: str
+    destination_disk_type:
+      description:
+      - The type to convert all VM disks to when doing the vmotion.
+      - C(destination_datastore) is required if C(destination_disk_type) is set, if not the C(destination_disk_type) does nothing.
+      - If C(desination_datastore) does not change the location of the VM disks this value will not take effect.
+      aliases: ['disk_type']
+      choices: ['thin', 'eagerzeroedthick', 'thick']
+      type: str
+      version_added: '1.13.0'
 extends_documentation_fragment:
 - community.vmware.vmware.documentation
 
@@ -202,11 +211,11 @@ class VmotionManager(PyVmomi):
         if dest_resourcepool:
             self.resourcepool_object = find_resource_pool_by_name(content=self.content,
                                                                   resource_pool_name=dest_resourcepool)
+            # Fail if user supplied resourcePool object is not found
+            if self.resourcepool_object is None:
+                self.module.fail_json(msg="Unable to find destination resource pool object %s" % dest_resourcepool)
         elif not dest_resourcepool and dest_host_name:
             self.resourcepool_object = self.host_object.parent.resourcePool
-        # Fail if resourcePool object is not found
-        if self.resourcepool_object is None:
-            self.module.fail_json(msg="Unable to find destination resource pool object which is required")
 
         # Check if datastore is required, this check is required if destination
         # and source host system does not share same datastore.
@@ -305,9 +314,27 @@ class VmotionManager(PyVmomi):
         """
         Migrate virtual machine and return the task.
         """
-        relocate_spec = vim.vm.RelocateSpec(host=self.host_object,
-                                            datastore=self.datastore_object,
-                                            pool=self.resourcepool_object)
+        if self.resourcepool_object:
+            relocate_spec = vim.vm.RelocateSpec(host=self.host_object,
+                                                datastore=self.datastore_object,
+                                                pool=self.resourcepool_object)
+        else:
+            relocate_spec = vim.vm.RelocateSpec(host=self.host_object,
+                                                datastore=self.datastore_object)
+        if self.datastore_object:
+            for device in self.vm.config.hardware.device:
+                if isinstance(device, vim.vm.device.VirtualDisk):
+                    disk_locator = vim.vm.RelocateSpec.DiskLocator()
+                    disk_locator.diskBackingInfo = vim.vm.device.VirtualDisk.FlatVer2BackingInfo()
+                    disk_locator.diskId = device.key
+                    if self.params['destination_disk_type'] == 'thin':
+                        disk_locator.diskBackingInfo.thinProvisioned = True
+                    elif self.params['destination_disk_type'] == 'eagerzeroedthick':
+                        disk_locator.diskBackingInfo.eagerlyScrub = True
+                    elif self.params['destination_disk_type'] == 'thick':
+                        disk_locator.diskBackingInfo.diskMode = "persistent"
+                    disk_locator.datastore = self.datastore_object
+                    relocate_spec.disk.append(disk_locator)
         task_object = self.vm.Relocate(relocate_spec)
         return task_object
 
@@ -356,7 +383,8 @@ def main():
             destination_host=dict(aliases=['destination']),
             destination_resourcepool=dict(aliases=['resource_pool']),
             destination_datastore=dict(aliases=['datastore']),
-            destination_datacenter=dict(type='str')
+            destination_datacenter=dict(type='str'),
+            destination_disk_type=dict(type='str', choices=['thin', 'eagerzeroedthick', 'thick'], aliases=['disk_type'])
         )
     )
 

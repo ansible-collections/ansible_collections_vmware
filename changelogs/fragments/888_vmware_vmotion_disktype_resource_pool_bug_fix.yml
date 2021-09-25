@@ -1,0 +1,3 @@
+minor_changes:
+- vmware_vmotion - fixed bug where resourcepool is required even if the destination host is not specified in almost all cases resourcepool is not needed anyways (https://github.com/ansible-collections/community.vmware/pull/888).
+- vmware_vmotion - added destination disk type to allow converting disks of a VM to thick, thin, or eager zeroed thick (https://github.com/ansible-collections/community.vmware/pull/888).

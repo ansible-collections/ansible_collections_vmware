@@ -75,6 +75,30 @@ Parameters
             <tr>
                 <td colspan="1">
                     <div class="ansibleOptionAnchor" id="parameter-"></div>
+                    <b>destination_disk_type</b>
+                    <a class="ansibleOptionLink" href="#parameter-" title="Permalink to this option"></a>
+                    <div style="font-size: small">
+                        <span style="color: purple">string</span>
+                    </div>
+                    <div style="font-style: italic; font-size: small; color: darkgreen">added in 1.13.0</div>
+                </td>
+                <td>
+                        <ul style="margin: 0; padding: 0"><b>Choices:</b>
+                                    <li>thin</li>
+                                    <li>eagerzeroedthick</li>
+                                    <li>thick</li>
+                        </ul>
+                </td>
+                <td>
+                        <div>The type to convert all VM disks to when doing the vmotion.</div>
+                        <div><code>destination_datastore</code> is required if <code>destination_disk_type</code> is set, if not the <code>destination_disk_type</code> does nothing.</div>
+                        <div>If <code>desination_datastore</code> does not change the location of the VM disks this value will not take effect.</div>
+                        <div style="font-size: small; color: darkgreen"><br/>aliases: disk_type</div>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <div class="ansibleOptionAnchor" id="parameter-"></div>
                     <b>destination_host</b>
                     <a class="ansibleOptionLink" href="#parameter-" title="Permalink to this option"></a>
                     <div style="font-size: small">
