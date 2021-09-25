@@ -1,0 +1,4 @@
+minor_changes:
+- vmware_guest_disk - Enabled the use of up to 64 disks on a paravirtual SCSI controller when the hardware is version 14 or higher.
+- vmware_guest_disk - Added bus_sharing as an option for SCSI devices.
+- vmware_guest_disk - Added a new key 'cluster_disk' which allows you to use a filename originating from a VM with an RDM.
