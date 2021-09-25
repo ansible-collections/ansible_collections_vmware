@@ -1051,10 +1051,7 @@ from ansible_collections.community.vmware.plugins.module_utils.vmware import (
     vmware_argument_spec,
     set_vm_power_state,
     PyVmomi,
-    find_dvs_by_name,
-    find_dvspg_by_name,
     wait_for_vm_ip,
-    quote_obj_name,
 )
 from ansible_collections.community.vmware.plugins.module_utils.vm_device_helper import PyVmomiDeviceHelper
 from ansible_collections.community.vmware.plugins.module_utils.vmware_spbm import SPBM
@@ -1066,7 +1063,6 @@ class PyVmomiCache(object):
     def __init__(self, content, dc_name=None):
         self.content = content
         self.dc_name = dc_name
-        self.networks = {}
         self.clusters = {}
         self.esx_hosts = {}
         self.parent_datacenters = {}
@@ -1099,14 +1095,6 @@ class PyVmomiCache(object):
                 objects = [x for x in objects if self.get_parent_datacenter(x).name == self.dc_name]
 
         return objects
-
-    def get_network(self, network):
-        network = quote_obj_name(network)
-
-        if network not in self.networks:
-            self.networks[network] = self.find_obj(self.content, [vim.Network], network)
-
-        return self.networks[network]
 
     def get_cluster(self, cluster):
         if cluster not in self.clusters:
@@ -1727,9 +1715,7 @@ class PyVmomiHelper(PyVmomi):
                 self.module.fail_json(msg="Please specify at least a network name or"
                                           " a VLAN name under VM network list.")
 
-            if 'name' in network and self.cache.get_network(network['name']) is None:
-                self.module.fail_json(msg="Network '%(name)s' does not exist." % network)
-            elif 'vlan' in network:
+            if 'vlan' in network:
                 dvps = self.cache.get_all_objs(self.content, [vim.dvs.DistributedVirtualPortgroup])
                 for dvp in dvps:
                     if hasattr(dvp.config.defaultPortConfig, 'vlan') and \
@@ -1785,6 +1771,55 @@ class PyVmomiHelper(PyVmomi):
             network_devices.append(network)
 
         return network_devices
+
+    def get_network(self, network_name=None, network_device=None):
+        """
+        Get network depending upon parameters provided by user
+
+        """
+        network = None
+        esxi_host = None
+        pg_lookup = {}
+
+        if self.params.get('esxi_hostname'):
+            esxi_host = self.select_host()
+            if esxi_host:
+                for pg in esxi_host.config.network.portgroup:
+                    pg_lookup[pg.spec.name] = {'switch': pg.spec.vswitchName, 'vlan_id': pg.spec.vlanId}
+        dvswitch_name = network_device.get('dvswitch_name', None)
+        vlan_id = network_device.get('vlan', None)
+
+        all_networks = self.cache.get_all_objs(self.content, [vim.Network])
+        for network in all_networks:
+            if esxi_host and isinstance(network, vim.Network):
+                # User specified ESXi and network without dvswitch details
+                # We assume user needs standard portgroup
+                if not dvswitch_name and network_name and network.name == network_name:
+                    # Standard portgroup by name
+                    return network
+                if vlan_id:
+                    # Standard portgroup by vlan id
+                    for k in pg_lookup.keys():
+                        if vlan_id == pg_lookup[k]['vlan_id']:
+                            if k == network.name:
+                                return network
+            elif dvswitch_name and isinstance(network, vim.dvs.DistributedVirtualPortgroup):
+                # Distributed Virtual Portgroup by DV Switch
+                dvs = network.config.distributedVirtualSwitch
+                if dvs.config.name == dvswitch_name and network.config.name == network_name:
+                    return network
+            elif vlan_id and isinstance(network, vim.dvs.DistributedVirtualPortgroup):
+                # Distributed Virtual Portgroup by VLAN ID
+                if network.config.defaultPortConfig.vlan.vlanId == vlan_id:
+                    return network
+            elif network_name and isinstance(network, vim.OpaqueNetwork) and network.name == network_name:
+                # NSX-T network by name
+                return network
+            elif network_name and isinstance(network, vim.Network) and not dvswitch_name and network.name == network_name:
+                # Standard portgroup by name
+                return network
+        # None
+        return network
 
     def configure_network(self, vm_obj):
         # Ignore empty networks, this permits to keep networks when deploying a template/cloning a VM
@@ -1850,21 +1885,13 @@ class PyVmomiHelper(PyVmomi):
                 nic.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
                 nic_change_detected = True
 
-            net_obj = self.cache.get_network(network_name)
-            if hasattr(net_obj, 'portKeys'):
-                # VDS switch
-                pg_obj = None
-                if 'dvswitch_name' in network_devices[key]:
-                    dvs_name = network_devices[key]['dvswitch_name']
-                    dvs_obj = find_dvs_by_name(self.content, dvs_name)
-                    if dvs_obj is None:
-                        self.module.fail_json(msg="Unable to find distributed virtual switch %s" % dvs_name)
-                    pg_obj = find_dvspg_by_name(dvs_obj, network_name)
-                    if pg_obj is None:
-                        self.module.fail_json(msg="Unable to find distributed port group %s" % network_name)
-                else:
-                    pg_obj = self.cache.find_obj(self.content, [vim.dvs.DistributedVirtualPortgroup], network_name)
+            net_obj = self.get_network(network_name, network_devices[key])
+            if not net_obj:
+                self.module.fail_json(msg="Failed to find network")
 
+            if isinstance(net_obj, vim.dvs.DistributedVirtualPortgroup):
+                # VDS switch
+                pg_obj = net_obj
                 # TODO: (akasurde) There is no way to find association between resource pool and distributed virtual portgroup
                 # For now, check if we are able to find distributed virtual switch
                 if not pg_obj.config.distributedVirtualSwitch:

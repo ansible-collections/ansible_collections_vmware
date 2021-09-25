@@ -4,37 +4,6 @@
 
 - debug: var=f0
 
-- name: create new VMs with non-existent network
-  vmware_guest:
-    validate_certs: false
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
-    name: new_vm
-    guest_id: centos64Guest
-    datacenter: "{{ dc1 }}"
-    disk:
-      - size: 3mb
-        type: thin
-        datastore: "{{ rw_datastore }}"
-    networks:
-      - name: "Non existent VM"
-    hardware:
-        num_cpus: 1
-        memory_mb: 128
-    state: poweredoff
-    folder: "{{ f0 }}"
-  register: non_existent_network
-  ignore_errors: true
-
-- debug: var=non_existent_network
-
-- name: assert that no changes were not made
-  assert:
-    that:
-        - not (non_existent_network is changed)
-        - "'does not exist' in non_existent_network.msg"
-
 - name: create new VMs with network and with only IP
   vmware_guest:
     validate_certs: false
