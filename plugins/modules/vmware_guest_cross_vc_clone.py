@@ -94,6 +94,11 @@ options:
       - Destination resource pool.
       - If not provided, the destination host's parent's resource pool will be used.
     type: str
+  is_template:
+    description:
+      - Specifies whether or not the new virtual machine should be marked as a template.
+    type: bool
+    default: False
   state:
     description:
       - The state of Virtual Machine deployed.
@@ -311,6 +316,7 @@ class CrossVCCloneManager(PyVmomi):
         self.clone_spec.config = self.config_spec
         self.clone_spec.powerOn = True if self.params['state'].lower() == 'poweredon' else False
         self.clone_spec.location = self.relocate_spec
+        self.clone_spec.template = self.params['is_template']
 
 
 def main():
@@ -333,6 +339,7 @@ def main():
         destination_vcenter_validate_certs=dict(type='bool', default=False),
         destination_vm_folder=dict(type='str', required=True),
         destination_resource_pool=dict(type='str', default=None),
+        is_template=(dict(type='bool', default=False)),
         state=dict(type='str', default='present',
                    choices=['present', 'poweredon'])
     )
