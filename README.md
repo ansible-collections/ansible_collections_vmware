@@ -153,6 +153,7 @@ Name | Description
 [community.vmware.vmware_guest_tools_info](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_tools_info_module.rst)|Gather info about VMware tools installed in VM
 [community.vmware.vmware_guest_tools_upgrade](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_tools_upgrade_module.rst)|Module to upgrade VMTools
 [community.vmware.vmware_guest_tools_wait](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_tools_wait_module.rst)|Wait for VMware tools to become available
+[community.vmware.vmware_guest_vgpu](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_vgpu_module.rst)|Modify vGPU video card profile of the specified virtual machine in the given vCenter infrastructure
 [community.vmware.vmware_guest_video](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_video_module.rst)|Modify video card configurations of specified virtual machine in given vCenter infrastructure
 [community.vmware.vmware_guest_vnc](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_guest_vnc_module.rst)|Manages VNC remote display on virtual machines in vCenter
 [community.vmware.vmware_host](https://github.com/ansible-collections/community.vmware/blob/main/docs/community.vmware.vmware_host_module.rst)|Add, remove, or move an ESXi host to, from, or within vCenter

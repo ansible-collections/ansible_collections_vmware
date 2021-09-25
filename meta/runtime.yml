@@ -74,6 +74,7 @@ action_groups:
   - vmware_guest_tools_info
   - vmware_guest_tools_upgrade
   - vmware_guest_tools_wait
+  - vmware_guest_vgpu
   - vmware_guest_video
   - vmware_guest_vnc
   - vmware_host

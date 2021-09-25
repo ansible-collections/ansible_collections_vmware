@@ -194,6 +194,8 @@ plugins/modules/vmware_guest_tools_upgrade.py compile-2.6!skip
 plugins/modules/vmware_guest_tools_upgrade.py import-2.6!skip
 plugins/modules/vmware_guest_tools_wait.py compile-2.6!skip
 plugins/modules/vmware_guest_tools_wait.py import-2.6!skip
+plugins/modules/vmware_guest_vgpu.py compile-2.6!skip
+plugins/modules/vmware_guest_vgpu.py import-2.6!skip
 plugins/modules/vmware_guest_video.py compile-2.6!skip
 plugins/modules/vmware_guest_video.py import-2.6!skip
 plugins/modules/vmware_guest_vnc.py compile-2.6!skip
