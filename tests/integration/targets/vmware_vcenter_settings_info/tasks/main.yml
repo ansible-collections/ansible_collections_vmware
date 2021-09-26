@@ -8,7 +8,7 @@
     setup_attach_host: true
 
 - name: "Gather info about vCenter settings"
-  vmware_vcenter_settings_info:
+  community.vmware.vmware_vcenter_settings_info:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
@@ -21,7 +21,7 @@
       - gather_info_about_vcenter_settings_result.vcenter_config_info | length == 32
 
 - name: "Get a list of information about vCenter settings by specifying the properties"
-  vmware_vcenter_settings_info:
+  community.vmware.vmware_vcenter_settings_info:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
@@ -38,3 +38,16 @@
       - get_list_of_info_about_vcenter_settings_result.vcenter_config_info['config.workflow.port'] is defined
       - get_list_of_info_about_vcenter_settings_result.vcenter_config_info['config.log.level'] is defined
       - get_list_of_info_about_vcenter_settings_result.vcenter_config_info['vpxd.locale'] is defined
+
+- name: "Gather all vCenter settings"
+  community.vmware.vmware_vcenter_settings_info:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    schema: vsphere
+  register: all_vcenter_settings_result
+
+- assert:
+    that:
+      - all_vcenter_settings_result.vcenter_config_info['config.vmacore.threadPool.TaskMax'] is defined

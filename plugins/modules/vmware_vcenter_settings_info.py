@@ -181,11 +181,15 @@ class VmwareVcenterSettingsInfo(PyVmomi):
                 if key in exists_vcenter_config:
                     result[value] = setting.value
         else:
-            for property in self.properties:
-                if property in exists_vcenter_config:
+            if self.properties:
+                for property in self.properties:
+                    if property in exists_vcenter_config:
+                        result[property] = exists_vcenter_config[property]
+                    else:
+                        self.module.fail_json(msg="Propety '%s' not found" % property)
+            else:
+                for property in exists_vcenter_config.keys():
                     result[property] = exists_vcenter_config[property]
-                else:
-                    self.module.fail_json(msg="Propety '%s' not found" % property)
 
         self.module.exit_json(changed=False, vcenter_config_info=result)
 
