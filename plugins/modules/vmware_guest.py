@@ -1922,13 +1922,8 @@ class PyVmomiHelper(PyVmomi):
                     nic_change_detected = True
 
             if nic_change_detected:
-                # Change to fix the issue found while configuring opaque network
-                # VMs cloned from a template with opaque network will get disconnected
-                # Replacing deprecated config parameter with relocation Spec
-                if isinstance(net_obj, vim.OpaqueNetwork):
-                    self.relospec.deviceChange.append(nic)
-                else:
-                    self.configspec.deviceChange.append(nic)
+                # TODO: is a relospec needed here?
+                self.configspec.deviceChange.append(nic)
                 self.change_detected = True
 
     def set_vapp_properties(self, property_spec):
