@@ -1,0 +1,2 @@
+minor_changes:
+  - vmware_guest_sendkey - Allow key kombinations for parameter 'keys_send' (https://github.com/ansible-collections/community.vmware/pull/1414).
