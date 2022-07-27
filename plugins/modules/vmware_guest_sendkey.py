@@ -84,6 +84,7 @@ options:
         C(CTRL_C), C(CTRL_X) and C(F1) to C(F12), C(RIGHTARROW), C(LEFTARROW), C(DOWNARROW), C(UPARROW).'
      - If both C(keys_send) and C(string_send) are specified, keys in C(keys_send) list will be sent in front of the C(string_send).
      - Values C(HOME) and C(END) are added in version 1.17.0.
+     - The possibility to combine keys with '+' was added in version 2.7.1.
      type: list
      elements: str
    sleep_time:
@@ -255,6 +256,7 @@ class PyVmomiHelper(PyVmomi):
             ('DOWNARROW', '0x51', [('', [])]),
             ('UPARROW', '0x52', [('', [])]),
         ]
+        self.key_modifier = ['LEFTSHIFT', 'CTRL', 'ALT']
 
     @staticmethod
     def hid_to_hex(hid_code):
@@ -326,20 +328,29 @@ class PyVmomiHelper(PyVmomi):
         num_keys_returned = 0
         key_queue = []
         if self.params['keys_send']:
-            for specified_key in self.params['keys_send']:
+            for specified_key_combination in self.params['keys_send']:
                 key_found = False
-                for keys in self.keys_hid_code:
-                    if (isinstance(keys[0], tuple) and specified_key in keys[0]) or \
-                            (not isinstance(keys[0], tuple) and specified_key == keys[0]):
-                        hid_code, modifiers = self.get_hid_from_key(specified_key)
-                        key_event = self.get_key_event(hid_code, modifiers)
-                        key_queue.append(key_event)
-                        self.num_keys_send += 1
-                        key_found = True
-                        break
-                if not key_found:
-                    self.module.fail_json(msg="keys_send parameter: '%s' in %s not supported."
-                                              % (specified_key, self.params['keys_send']))
+                hid_code, modifiers = '', []
+                for specified_key in specified_key_combination.split('+'):
+                    if specified_key in self.key_modifier:
+                        modifiers.append(specified_key)
+                    else:
+                        if key_found:
+                            self.module.fail_json(msg="keys_send parameter: Sending multiple keys simultaniously is not supported. Only the modifiers"
+                                                  "'LEFTSHIFT', 'CTRL', 'ALT' can be freely combined with a key.")
+                        for keys in self.keys_hid_code:
+                            if (isinstance(keys[0], tuple) and specified_key in keys[0]) or \
+                                    (not isinstance(keys[0], tuple) and specified_key == keys[0]):
+                                hid_code, mod = self.get_hid_from_key(specified_key)
+                                modifiers.append(mod)
+                                key_found = True
+                                break
+                        if not key_found:
+                            self.module.fail_json(msg="keys_send parameter: '%s' in %s not supported." % (specified_key, self.params['keys_send']))
+
+                key_event = self.get_key_event(hid_code, modifiers)
+                key_queue.append(key_event)
+                self.num_keys_send += 1
 
         if self.params['string_send']:
             for char in self.params['string_send']:
