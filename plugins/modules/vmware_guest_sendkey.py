@@ -348,12 +348,12 @@ class PyVmomiHelper(PyVmomi):
                         if key_found:
                             self.module.fail_json(msg="keys_send parameter: Sending multiple keys simultaniously is not supported. Only the modifiers"
                                                   "'SHIFT', 'CTRL', 'ALT' can be freely combined with a key.")
-                        
+
                         # If this is key kombination, we transform the key to lowercase.
                         # Otherwise an uppercase key would be handled as KEY + SHIFT.
                         if '+' in specified_key_combination:
                             specified_key = specified_key.lower()
-                        
+
                         for keys in self.keys_hid_code:
                             if (isinstance(keys[0], tuple) and specified_key in keys[0]) or \
                                     (not isinstance(keys[0], tuple) and specified_key == keys[0]):
