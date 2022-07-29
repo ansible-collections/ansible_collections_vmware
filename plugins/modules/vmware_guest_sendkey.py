@@ -80,16 +80,16 @@ options:
    keys_send:
      description:
      - The list of the keys will be sent to the virtual machine.
-     - Valid values are:
-       - 'The letters C(A) to C(Z) in lower- and uppercase, the numbers C(0) to C(9) and the symbols C(!), C(@), C(\#), C($), C(%), C(^), C(&),
-          C(*), C(\(), C(\)), C(-), C(_), C(=), C(+), C([), C({), C(]), C(}), C(\\), C(|), C(;), C(:), C('), C("), C(`), C(~), C(,), C(<), C(.),
+     - 'Valid values are:'
+     - '  The letters C(A) to C(Z) in lower- and uppercase, the numbers C(0) to C(9) and the symbols C(!), C(@), C(#), C($), C(%), C(^), C(&),
+          C(*), C((), C()), C(-), C(_), C(=), C(+), C([), C({), C(]), C(}), C(\), C(|), C(;), C(:), C(''), C("), C(`), C(~), C(,), C(<), C(.),
           C(>), C(/), C(?).'
-       - 'The non-printable keys C(ENTER), C(ESC), C(BACKSPACE), C(TAB), C(SPACE), C(CAPSLOCK), C(HOME), C(DELETE), C(END), C(F1) to C(F12),
+     - '  The non-printable keys C(ENTER), C(ESC), C(BACKSPACE), C(TAB), C(SPACE), C(CAPSLOCK), C(HOME), C(DELETE), C(END), C(F1) to C(F12),
           C(RIGHTARROW), C(LEFTARROW), C(DOWNARROW) and C(UPARROW).'
-       - 'Key combinations can be typed by specifying a value from the above list of printable and non-printable keys together with any
+     - '  Key combinations can be typed by specifying a value from the above list of printable and non-printable keys together with any
           number of the following key modifiers C(CTRL), C(SHIFT), C(ALT). When a key combination is given, the letters C(A) to C(Z) are always
           interpretated as lowercase.'
-       - 'There are a few pre-defined key combinations like C(CTRL_ALT_DEL), C(CTRL_C), C(CTRL_X).
+     - '  There are a few pre-defined key combinations like C(CTRL_ALT_DEL), C(CTRL_C), C(CTRL_X).'
      - If both C(keys_send) and C(string_send) are specified, keys in C(keys_send) list will be sent in front of the C(string_send).
      - Values C(HOME) and C(END) are added in version 1.17.0.
      - The possibility to combine keys with '+' was added in version 2.7.1.
