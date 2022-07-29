@@ -30,8 +30,8 @@
       - DOWNARROW
       - DOWNARROW
       - ENTER
-      - CTRL+a
-      - CTRL+ALT+w
+      - CTRL+A
+      - CTRL+ALT+W
   register: send_key
 - debug: var=send_key
 - name: assert the keys were sent to VM
