@@ -1,0 +1,25 @@
+---
+- name: Remove virtual machine
+  gather_facts: no
+  hosts: localhost
+  tasks:
+    - set_fact:
+        vm_name: "{{ vm_name }}"
+        vm_datacenter: "{{ vm_datacenter }}"
+        vcenter_server: "{{ vcenter_server }}"
+        vcenter_cluster: "{{ vcenter_cluster }}"
+        vcenter_user: "{{ vcenter_user }}"
+        vcenter_pass: "{{ vcenter_pass }}"
+
+    - name: Remove "{{ vm_name }}"
+      vmware_guest:
+        hostname: "{{ vcenter_server }}"
+        username: "{{ vcenter_user }}"
+        password: "{{ vcenter_pass }}"
+        validate_certs: no
+        cluster: "{{ vcenter_cluster }}"
+        name: "{{ vm_name }}"
+        datacenter: "{{ vm_datacenter }}"
+        state: absent
+      delegate_to: localhost
+      register: facts
