@@ -43,8 +43,15 @@ options:
   object_name:
     description:
     - The object name to assigned permission.
+    - Required if C(object_moid) is not specified.
     type: str
-    required: True
+    required: False
+  object_moid:
+    description:
+    - The Managed Object ID to assigned permission.
+    - Required if C(object_name) is not specified.
+    type: str
+    required: False
   object_type:
     description:
     - The object type being targeted.
@@ -128,6 +135,19 @@ EXAMPLES = r'''
     object_name: services
     state: present
   delegate_to: localhost
+
+- name: Assign domain user to VM folder with MOID
+  community.vmware.vmware_object_role_permission:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    role: Admin
+    principal: "vsphere.local\\domainuser"
+    object_moid: group-v272542
+    state: present
+  delegate_to: localhost
+
 '''
 
 RETURN = r'''
@@ -282,14 +302,25 @@ class VMwareObjectRolePermission(PyVmomi):
             getattr(vim, self.params['object_type'])
         except AttributeError:
             self.module.fail_json(msg="Object type %s is not valid." % self.params['object_type'])
-        self.current_obj = find_obj(content=self.content,
-                                    vimtype=[getattr(vim, self.params['object_type'])],
-                                    name=self.params['object_name'])
+
+        if self.params['object_moid']:
+            moid = self.params['object_moid']
+            all_objects = find_obj(content=self.content,
+                                   vimtype=[getattr(vim, self.params['object_type'])],
+                                   name=None,
+                                   first=False)
+            found_obj = [obj for obj in all_objects if moid == obj._moId]
+            self.current_obj = found_obj[0] if found_obj else None
+
+        else:
+            self.current_obj = find_obj(content=self.content,
+                                        vimtype=[getattr(vim, self.params['object_type'])],
+                                        name=self.params['object_name'])
 
         if self.current_obj is None:
             self.module.fail_json(
                 msg="Specified object %s of type %s was not found."
-                % (self.params['object_name'], self.params['object_type'])
+                % (self.params['object_name'] or self.params['object_moid'], self.params['object_type'])
             )
         if self.params['object_type'] == 'DistributedVirtualSwitch':
             msg = "You are applying permissions to a Distributed vSwitch. " \
@@ -304,7 +335,8 @@ def main():
     argument_spec.update(
         dict(
             role=dict(required=True, type='str'),
-            object_name=dict(required=True, type='str'),
+            object_name=dict(required=False, type='str'),
+            object_moid=dict(required=False, type='str'),
             object_type=dict(
                 type='str',
                 default='Folder',
@@ -334,10 +366,12 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         mutually_exclusive=[
-            ['principal', 'group']
+            ['principal', 'group'],
+            ['object_name', 'object_moid']
         ],
         required_one_of=[
-            ['principal', 'group']
+            ['principal', 'group'],
+            ['object_name', 'object_moid']
         ],
     )
 
