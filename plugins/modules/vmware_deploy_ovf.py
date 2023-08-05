@@ -170,6 +170,24 @@ EXAMPLES = r'''
     datastore: test-datastore
     ovf: /path/to/ubuntu-16.04-amd64.ovf
   delegate_to: localhost
+  
+# Deploy an OVA template, with network mapping of four source networks (Internal, External, Management, and HA) to target networks (VM_NET_1, VM_NET_2, VM_NET_3, and VM_NET_4)
+- community.vmware.vmware_deploy_ovf:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    datacenter: Datacenter1
+    cluster: Cluster1
+    datastore: vsandatastore
+    name: NewVM
+    networks:
+      Internal: 'VM_NET_1'
+      External: 'VM_NET_2'
+      Management: 'VM_NET_3'
+      HA: 'VM_NET_4'
+    power_on: false
+    ovf: files/mytemplate.ovf
+  delegate_to: localhost
 '''
 
 
