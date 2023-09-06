@@ -23,7 +23,9 @@ DOCUMENTATION = r"""
       - "vSphere Automation SDK - For tag feature"
     options:
         hostname:
-            description: Name of vCenter or ESXi server.
+            description:
+            - Name or IP of vCenter or ESXi server.
+            - Accepts vault encrypted variable.
             required: true
             env:
               - name: VMWARE_HOST
@@ -233,8 +235,12 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         # set _options from config data
         self._consume_options(config_data)
 
+        hostname = self.get_option("hostname")
         username = self.get_option("username")
         password = self.get_option("password")
+
+        if isinstance(hostname, AnsibleVaultEncryptedUnicode):
+            hostname = hostname.data
 
         if isinstance(username, AnsibleVaultEncryptedUnicode):
             username = username.data
@@ -243,7 +249,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             password = password.data
 
         self.pyv = BaseVMwareInventory(
-            hostname=self.get_option("hostname"),
+            hostname=hostname,
             username=username,
             password=password,
             port=self.get_option("port"),
