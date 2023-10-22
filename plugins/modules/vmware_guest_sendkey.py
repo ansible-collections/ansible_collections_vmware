@@ -71,6 +71,11 @@ options:
      description:
      - The string will be sent to the virtual machine.
      - This string can contain valid special character, alphabet and digit on the keyboard.
+     - 'C(<WAIT>) special string: add an arbitrary pause before sending any additional keys.'
+     - Use C(<WAIT>), C(<WAITxx>) and C(<WAITxxT>) , where xx = integer and T is s, m or h for seconds, minutes and hours of pause respectively.
+     - You can add any type of C(keys_send) value between C('<>') too.
+     - 'Example: 123<RETURN><WAIT>testing<WAIT><RETURN><WAIT1m>.'
+     - 'Escape by adding C(\) in front of key: C(\)<WAIT> C(\)<TAB>.'
      type: str
    keys_send:
      description:
@@ -82,12 +87,18 @@ options:
      type: list
      default: []
      elements: str
+   strings_send:
+     description:
+     - A list of strings will be sent to the virtual machine.
+     - If both C(string_send) and C(strings_send) are specified, keys in C(string_send) will be sent in front of the C(strings_send) list.
+     type: list
+     elements: str
    sleep_time:
      description:
-     - Sleep time in seconds between two keys or string sent to the virtual machine.
+     - Sleep time in seconds ( or fraction of seconds ) between two keys or string sent to the virtual machine.
      - API is faster than actual key or string send to virtual machine, this parameter allow to control
        delay between keys and/or strings.
-     type: int
+     type: float
      default: 0
 extends_documentation_fragment:
 - community.vmware.vmware.documentation
@@ -134,6 +145,22 @@ EXAMPLES = r'''
     string_send: "user_logon"
   delegate_to: localhost
   register: keys_num_sent
+
+- name: Send a list of strings to virtual machine
+  community.vmware.vmware_guest_sendkey:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter_name }}"
+    folder: "{{ folder_name }}"
+    name: "{{ vm_name }}"
+    strings_send:
+      - "user_logon"
+      - "<WAIT2s><ENTER>"
+      - "<TAB>"
+      - "<NONKEY>\\<TAB>SOMETHING<ENTER>"
+  delegate_to: localhost
+  register: keys_num_sent
 '''
 
 RETURN = r'''
@@ -156,6 +183,7 @@ sendkey_info:
 '''
 
 import time
+import re
 try:
     from pyVmomi import vim, vmodl
 except ImportError:
@@ -309,11 +337,29 @@ class PyVmomiHelper(PyVmomi):
         """
         send_keys = 0
         for item in key_queue:
-            usb_spec = vim.UsbScanCodeSpec()
-            usb_spec.keyEvents.append(item)
-            send_keys += vm_obj.PutUsbScanCodes(usb_spec)
-            # Sleep in between key / string send event
-            time.sleep(sleep_time)
+            if isinstance(item, (str,)):
+                match = re.match(r"^WAIT($|([0-9]+)(h|m|s|$))", item)
+                if match:
+                    wtime = int(match.groups()[1]) if (match.groups()[1]) else 1
+                    wtype = match.groups()[2]
+                    if wtype:
+                        if wtype == 's':
+                            pass
+                        elif (wtype == 'h'):
+                            wtime *= 3600
+                        elif (wtype == 'm'):
+                            wtime *= 60
+                        else:
+                            self.module.fail_json(msg="value %s in <%s> should be absent or 'h' or 'm' ." % (wtype, item))
+                    time.sleep(wtime)
+                else:
+                    self.module.fail_json(msg="value of %s should be a <WAIT*> statement." % (item))
+            else:
+                usb_spec = vim.UsbScanCodeSpec()
+                usb_spec.keyEvents.append(item)
+                send_keys += vm_obj.PutUsbScanCodes(usb_spec)
+                # Sleep in between key / string send event
+                time.sleep(sleep_time)
         return send_keys
 
     def send_key_to_vm(self, vm_obj):
@@ -337,19 +383,47 @@ class PyVmomiHelper(PyVmomi):
                                               % (specified_key, self.params['keys_send']))
 
         if self.params['string_send']:
-            for char in self.params['string_send']:
-                key_found = False
-                for keys in self.keys_hid_code:
-                    if (isinstance(keys[0], tuple) and char in keys[0]) or char == ' ':
-                        hid_code, modifiers = self.get_hid_from_key(char)
-                        key_event = self.get_key_event(hid_code, modifiers)
-                        key_queue.append(key_event)
-                        self.num_keys_send += 1
-                        key_found = True
-                        break
-                if not key_found:
-                    self.module.fail_json(msg="string_send parameter: '%s' contains char: '%s' not supported."
-                                              % (self.params['string_send'], char))
+            self.params['strings_send'].insert(0, self.params['string_send'])
+
+        if self.params['strings_send']:
+            for str_item in self.params['strings_send']:
+                for str_part in re.split(r'(\\?\<\w+\>)', str_item):
+                    str_special = re.match(r'^(\<\w+\>)', str_part)
+                    if (str_special):
+                        str_replaced = re.sub(r'^\<(\w+)\>', r'\1', str_special.group())
+                        if (str_replaced.startswith("WAIT")):
+                            key_queue.append(str_replaced)
+                            continue
+                        else:
+                            # code reused from keys_send... is there a better approach?
+                            key_found = False
+                            for keys in self.keys_hid_code:
+                                if (isinstance(keys[0], tuple) and str_replaced in keys[0]) or \
+                                        (not isinstance(keys[0], tuple) and str_replaced == keys[0]):
+                                    hid_code, modifiers = self.get_hid_from_key(str_replaced)
+                                    key_event = self.get_key_event(hid_code, modifiers)
+                                    key_queue.append(key_event)
+                                    self.num_keys_send += 1
+                                    key_found = True
+                                    break
+                            if not key_found:
+                                self.module.fail_json(msg="string(s)_send(keys_send) parameter: '%s' in %s not supported."
+                                                          % (str_replaced, str_special))
+                    else:
+                        fixed_str = re.sub(r'^\\(\<)', r'\1', str_part)
+                        for char in fixed_str:
+                            key_found = False
+                            for keys in self.keys_hid_code:
+                                if (isinstance(keys[0], tuple) and char in keys[0]) or char == ' ':
+                                    hid_code, modifiers = self.get_hid_from_key(char)
+                                    key_event = self.get_key_event(hid_code, modifiers)
+                                    key_queue.append(key_event)
+                                    self.num_keys_send += 1
+                                    key_found = True
+                                    break
+                            if not key_found:
+                                self.module.fail_json(msg="string(s)_send parameter: '%s' contains char: '%s' not supported."
+                                                          % (fixed_str, char))
 
         if key_queue:
             try:
@@ -379,7 +453,8 @@ def main():
         cluster=dict(type='str'),
         keys_send=dict(type='list', default=[], elements='str', no_log=False),
         string_send=dict(type='str'),
-        sleep_time=dict(type='int', default=0),
+        strings_send=dict(type='list', default=[], elements='str', no_log=False),
+        sleep_time=dict(type='float', default=0),
     )
 
     module = AnsibleModule(

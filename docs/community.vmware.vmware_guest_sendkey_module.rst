@@ -254,14 +254,14 @@ Parameters
                     <b>sleep_time</b>
                     <a class="ansibleOptionLink" href="#parameter-" title="Permalink to this option"></a>
                     <div style="font-size: small">
-                        <span style="color: purple">integer</span>
+                        <span style="color: purple">float</span>
                     </div>
                 </td>
                 <td>
                         <b>Default:</b><br/><div style="color: blue">0</div>
                 </td>
                 <td>
-                        <div>Sleep time in seconds between two keys or string sent to the virtual machine.</div>
+                        <div>Sleep time in seconds ( or fraction of seconds ) between two keys or string sent to the virtual machine.</div>
                         <div>API is faster than actual key or string send to virtual machine, this parameter allow to control delay between keys and/or strings.</div>
                 </td>
             </tr>
@@ -279,6 +279,28 @@ Parameters
                 <td>
                         <div>The string will be sent to the virtual machine.</div>
                         <div>This string can contain valid special character, alphabet and digit on the keyboard.</div>
+                        <div><code>&lt;WAIT&gt;</code> special string: add an arbitrary pause before sending any additional keys.</div>
+                        <div>Use <code>&lt;WAIT&gt;</code>, <code>&lt;WAITxx&gt;</code> and <code>&lt;WAITxxT&gt;</code> , where xx = integer and T is s, m or h for seconds, minutes and hours of pause respectively.</div>
+                        <div>You can add any type of <code>keys_send</code> value between <code>&#x27;&lt;&gt;&#x27;</code> too.</div>
+                        <div>Example: 123&lt;RETURN&gt;&lt;WAIT&gt;testing&lt;WAIT&gt;&lt;RETURN&gt;&lt;WAIT1m&gt;.</div>
+                        <div>Escape by adding <code>\</code> in front of key: <code>\</code>&lt;WAIT&gt; <code>\</code>&lt;TAB&gt;.</div>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <div class="ansibleOptionAnchor" id="parameter-"></div>
+                    <b>strings_send</b>
+                    <a class="ansibleOptionLink" href="#parameter-" title="Permalink to this option"></a>
+                    <div style="font-size: small">
+                        <span style="color: purple">list</span>
+                         / <span style="color: purple">elements=string</span>
+                    </div>
+                </td>
+                <td>
+                </td>
+                <td>
+                        <div>A list of strings will be sent to the virtual machine.</div>
+                        <div>If both <code>string_send</code> and <code>strings_send</code> are specified, keys in <code>string_send</code> will be sent in front of the <code>strings_send</code> list.</div>
                 </td>
             </tr>
             <tr>
@@ -391,6 +413,22 @@ Examples
         folder: "{{ folder_name }}"
         name: "{{ vm_name }}"
         string_send: "user_logon"
+      delegate_to: localhost
+      register: keys_num_sent
+
+    - name: Send a list of strings to virtual machine
+      community.vmware.vmware_guest_sendkey:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ datacenter_name }}"
+        folder: "{{ folder_name }}"
+        name: "{{ vm_name }}"
+        strings_send:
+          - "user_logon"
+          - "<WAIT2s><ENTER>"
+          - "<TAB>"
+          - "<NONKEY>\\<TAB>SOMETHING<ENTER>"
       delegate_to: localhost
       register: keys_num_sent
 
