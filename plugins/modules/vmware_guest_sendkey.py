@@ -75,10 +75,19 @@ options:
    keys_send:
      description:
      - The list of the keys will be sent to the virtual machine.
-     - 'Valid values are C(ENTER), C(ESC), C(BACKSPACE), C(TAB), C(SPACE), C(CAPSLOCK), C(HOME), C(DELETE), C(END), C(CTRL_ALT_DEL),
-        C(CTRL_C), C(CTRL_X) and C(F1) to C(F12), C(RIGHTARROW), C(LEFTARROW), C(DOWNARROW), C(UPARROW).'
+     - 'Valid values are:'
+     - '  The letters C(A) to C(Z) in lower- and uppercase, the numbers C(0) to C(9) and the symbols C(!), C(@), C(#), C($), C(%), C(^), C(&),
+          C(*), C((), C()), C(-), C(_), C(=), C(+), C([), C({), C(]), C(}), C(\), C(|), C(;), C(:), C(''), C("), C(`), C(~), C(,), C(<), C(.),
+          C(>), C(/), C(?).'
+     - '  The non-printable keys C(ENTER), C(ESC), C(BACKSPACE), C(TAB), C(SPACE), C(CAPSLOCK), C(HOME), C(DELETE), C(END), C(F1) to C(F12),
+          C(RIGHTARROW), C(LEFTARROW), C(DOWNARROW) and C(UPARROW).'
+     - '  Key combinations can be typed by specifying a value from the above list of printable and non-printable keys together with any
+          number of the following key modifiers C(CTRL), C(SHIFT), C(ALT). When a key combination is given, the letters C(A) to C(Z) are always
+          interpretated as lowercase.'
+     - '  There are a few pre-defined key combinations like C(CTRL_ALT_DEL), C(CTRL_C), C(CTRL_X).'
      - If both C(keys_send) and C(string_send) are specified, keys in C(keys_send) list will be sent in front of the C(string_send).
      - Values C(HOME) and C(END) are added in version 1.17.0.
+     - The possibility to combine keys with '+' was added in version 2.7.1.
      type: list
      default: []
      elements: str
@@ -106,7 +115,9 @@ EXAMPLES = r'''
     keys_send:
       - TAB
       - TAB
+      - CTRL+
       - ENTER
+      - CTRL+X
   delegate_to: localhost
   register: keys_num_sent
 
@@ -250,6 +261,7 @@ class PyVmomiHelper(PyVmomi):
             ('DOWNARROW', '0x51', [('', [])]),
             ('UPARROW', '0x52', [('', [])]),
         ]
+        self.key_modifier = ['SHIFT', 'CTRL', 'ALT']
 
     @staticmethod
     def hid_to_hex(hid_code):
@@ -279,7 +291,7 @@ class PyVmomiHelper(PyVmomi):
         key_modifier.rightGui = False
         key_modifier.rightShift = False
         # rightShift, rightControl, rightAlt, leftGui, rightGui are not used
-        if "LEFTSHIFT" in modifiers:
+        if ("LEFTSHIFT" or 'SHIFT') in modifiers:
             key_modifier.leftShift = True
         if "CTRL" in modifiers:
             key_modifier.leftControl = True
@@ -321,20 +333,35 @@ class PyVmomiHelper(PyVmomi):
         num_keys_returned = 0
         key_queue = []
         if self.params['keys_send']:
-            for specified_key in self.params['keys_send']:
+            for specified_key_combination in self.params['keys_send']:
                 key_found = False
-                for keys in self.keys_hid_code:
-                    if (isinstance(keys[0], tuple) and specified_key in keys[0]) or \
-                            (not isinstance(keys[0], tuple) and specified_key == keys[0]):
-                        hid_code, modifiers = self.get_hid_from_key(specified_key)
-                        key_event = self.get_key_event(hid_code, modifiers)
-                        key_queue.append(key_event)
-                        self.num_keys_send += 1
-                        key_found = True
-                        break
-                if not key_found:
-                    self.module.fail_json(msg="keys_send parameter: '%s' in %s not supported."
-                                              % (specified_key, self.params['keys_send']))
+                hid_code, modifiers = '', []
+                for specified_key in specified_key_combination.split('+'):
+                    if specified_key in self.key_modifier:
+                        modifiers.append(specified_key)
+                    else:
+                        if key_found:
+                            self.module.fail_json(msg="keys_send parameter: Sending multiple keys simultaniously is not supported. Only the modifiers"
+                                                  "'SHIFT', 'CTRL', 'ALT' can be freely combined with a key.")
+
+                        # If this is key kombination, we transform the key to lowercase.
+                        # Otherwise an uppercase key would be handled as KEY + SHIFT.
+                        if '+' in specified_key_combination:
+                            specified_key = specified_key.lower()
+
+                        for keys in self.keys_hid_code:
+                            if (isinstance(keys[0], tuple) and specified_key in keys[0]) or \
+                                    (not isinstance(keys[0], tuple) and specified_key == keys[0]):
+                                hid_code, mod = self.get_hid_from_key(specified_key)
+                                modifiers.append(mod)
+                                key_found = True
+                                break
+                        if not key_found:
+                            self.module.fail_json(msg="keys_send parameter: '%s' in %s not supported." % (specified_key, self.params['keys_send']))
+
+                key_event = self.get_key_event(hid_code, modifiers)
+                key_queue.append(key_event)
+                self.num_keys_send += 1
 
         if self.params['string_send']:
             for char in self.params['string_send']:
