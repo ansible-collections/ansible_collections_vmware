@@ -745,6 +745,13 @@ class PyVmomiHelper(PyVmomi):
                                             disk_spec = self.get_ioandshares_diskconfig(disk_spec, disk)
                                         disk_spec.device.capacityInKB = disk['size']
                                         disk_change = True
+                                # If disk is not vpmem we check if there is a change in disk mode
+                                if disk['disk_type'] != 'vpmemdisk' and disk['disk_mode'] != disk_spec.device.backing.diskMode:
+                                    # set the operation to edit so that it knows to keep other settings
+                                    disk_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+                                    disk_spec = self.get_ioandshares_diskconfig(disk_spec, disk)
+                                    disk_spec.device.backing.diskMode = disk['disk_mode']
+                                    disk_change = True
 
                                 if disk_change:
                                     self.config_spec.deviceChange.append(disk_spec)
