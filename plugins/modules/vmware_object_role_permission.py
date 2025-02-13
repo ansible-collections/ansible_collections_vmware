@@ -300,10 +300,9 @@ class VMwareObjectRolePermission(PyVmomi):
         if self.params['object_name'].startswith('/'):
             object_path_elements = os.path.split(self.params['object_name'])
             all_objects_with_name = find_obj(content=self.content,
-                                   vimtype=[getattr(vim, self.params['object_type'])],
-                                   name=object_path_elements[1],
-                                   first=False)
-            
+                                             vimtype=[getattr(vim, self.params['object_type'])],
+                                             name=object_path_elements[1],
+                                             first=False)
             found_obj = [obj for obj in all_objects_with_name if self.params['object_name'] == compile_folder_path_for_object(obj)]
             self.current_obj = found_obj[0] if found_obj else None
         else:
