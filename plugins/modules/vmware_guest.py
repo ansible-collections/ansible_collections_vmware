@@ -1969,6 +1969,9 @@ class PyVmomiHelper(PyVmomi):
                 if 'mac' in network_devices[key] and nic.device.macAddress != current_net_devices[key].macAddress:
                     self.module.fail_json(msg="Changing MAC address has not effect when interface is already present. "
                                               "The failing new MAC address is %s" % nic.device.macAddress)
+                if network_devices[key].get('mac') != nic.device.macAddress:
+                    nic.device.macAddress = network_devices[key].get('mac')
+                    nic_change_detected = True
 
             else:
                 # Default device type is vmxnet3, VMware best practice
