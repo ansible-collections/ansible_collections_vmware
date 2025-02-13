@@ -161,6 +161,7 @@ from ansible.module_utils._text import to_native
 from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_obj, compile_folder_path_for_object
 import os.path
 
+
 class VMwareObjectRolePermission(PyVmomi):
     def __init__(self, module):
         super(VMwareObjectRolePermission, self).__init__(module)
