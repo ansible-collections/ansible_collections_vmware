@@ -1,0 +1,77 @@
+# Test code for the guest module.
+# Copyright: (c) 2018, Abhijeet Kasurde <akasurde@redhat.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- &create_test_vm1
+  name: create new VMs with boot_firmware as 'bios'
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: test_vm1
+    guest_id: centos64Guest
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    hardware:
+        num_cpus: 1
+        boot_firmware: "bios"
+        memory_mb: 128
+    state: present
+    folder: "{{ f0 }}"
+  register: create_d1_c1_f0
+
+- debug: var=create_d1_c1_f0
+
+- name: assert that changes were made
+  assert:
+    that:
+        - create_d1_c1_f0 is changed
+
+- <<: *create_test_vm1
+  name: create new VMs again with boot_firmware as 'bios'
+  register: create_d1_c1_f0_again
+
+- debug: var=create_d1_c1_f0_again
+
+- name: assert that changes were not made
+  assert:
+    that:
+      - create_d1_c1_f0_again is not changed
+
+- &create_test_vm2
+  name: create new VMs with boot_firmware as 'efi'
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: test_vm2
+    guest_id: centos64Guest
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    hardware:
+        num_cpus: 1
+        boot_firmware: "efi"
+        memory_mb: 128
+    state: present
+    folder: "{{ f0 }}"
+  register: create_d1_c1_f0
+
+- debug: var=create_d1_c1_f0
+
+- name: assert that changes were made
+  assert:
+    that:
+        - create_d1_c1_f0 is changed
+
+- <<: *create_test_vm2
+  name: create new VMs again with boot_firmware as 'efi'
+  register: create_d1_c1_f0_again
+
+- debug: var=create_d1_c1_f0
+
+- name: assert that changes were not made
+  assert:
+    that:
+      - create_d1_c1_f0_again is not changed

@@ -1,0 +1,29 @@
+# Test code for the guest module.
+# Copyright: (c) 2017, Abhijeet Kasurde <akasurde@redhat.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: create new virtual machine with invalid guest id
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: invalid_vm
+    guest_id: "invalid_guest_id"
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    hardware:
+        num_cpus: 1
+        memory_mb: 128
+    state: present
+    folder: "{{ f0 }}"
+  register: invalid_guest_0001_d1_c1_f0
+  ignore_errors: true
+
+- debug: var=invalid_guest_0001_d1_c1_f0
+
+- name: assert that no changes were made
+  assert:
+    that:
+        - "not (invalid_guest_0001_d1_c1_f0 is changed)"
+        - "'configSpec.guestId' in invalid_guest_0001_d1_c1_f0['msg']"

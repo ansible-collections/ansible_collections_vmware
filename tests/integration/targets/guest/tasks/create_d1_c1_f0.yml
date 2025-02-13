@@ -1,0 +1,119 @@
+# Test code for the guest module.
+# Copyright: (c) 2017, James Tanner <tanner.jc@gmail.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- &create_test_vm1
+  name: create new VM
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: test_vm1
+    guest_id: centos64Guest
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    hardware:
+        num_cpus: 1
+        num_cpu_cores_per_socket: 1
+        memory_mb: 128
+        hotadd_memory: true
+        hotadd_cpu: false
+        memory_reservation: 128
+        memory_reservation_lock: false
+        nested_virt: true
+        hotremove_cpu: true
+        mem_limit: 8096
+        mem_reservation: 4096
+        cpu_limit: 8096
+        cpu_reservation: 4096
+        max_connections: 10
+    state: present
+    folder: '{{ f0 }}'
+  register: create_d1_c1_f0
+
+- debug: var=create_d1_c1_f0
+
+- name: assert that changes were made
+  assert:
+    that:
+        - create_d1_c1_f0 is changed
+
+- <<: *create_test_vm1
+  name: create the VM again
+  register: create_d1_c1_f0_again
+
+- debug: var=create_d1_c1_f0_again
+
+- name: assert that no changes were made after re-creating
+  assert:
+    that:
+        - create_d1_c1_f0_again is not changed
+
+- &modify_test_vm1
+  name: modify the new VM
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: test_vm1
+    guest_id: centos64Guest
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    hardware:
+        num_cpus: 2
+        memory_mb: 128
+    state: present
+    folder: '{{ f0 }}'
+  register: modify_d1_c1_f0
+
+- debug: var=modify_d1_c1_f0
+
+- name: assert that changes were made with modification
+  assert:
+    that:
+        - modify_d1_c1_f0 is changed
+
+- <<: *modify_test_vm1
+  name: re-modify the new VMs
+  register: modify_d1_c1_f0_again
+
+- debug: var=modify_d1_c1_f0_again
+
+- name: assert that no changes were made when re-modified
+  assert:
+    that:
+        - modify_d1_c1_f0_again is not changed
+
+- &delete_test_vm1
+  name: delete the new VMs
+  guest:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    name: test_vm1
+    datacenter: "{{ dc1 }}"
+    esxi_hostname: '{{ esxi1 }}'
+    state: absent
+    folder: '{{ f0 }}'
+  register: delete_d1_c1_f0
+
+- debug: var=delete_d1_c1_f0
+
+- name: assert that changes were made with deletion
+  assert:
+    that:
+        - delete_d1_c1_f0 is changed
+
+- <<: *delete_test_vm1
+  name: re-delete the new VMs
+  register: delete_d1_c1_f0_again
+
+- debug: var=delete_d1_c1_f0_again
+
+- name: assert that no changes were made with redeletion
+  assert:
+    that:
+        - delete_d1_c1_f0_again is not changed

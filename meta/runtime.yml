@@ -3,6 +3,7 @@ requires_ansible: '>=2.17.0'
 
 action_groups:
   vmware:
+  - guest
   - vcenter_domain_user_group_info
   - vcenter_extension
   - vcenter_extension_info

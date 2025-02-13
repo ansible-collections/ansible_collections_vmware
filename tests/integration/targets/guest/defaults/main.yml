@@ -1,0 +1,4 @@
+guest_test_playbooks:
+  - boot_firmware_d1_c1_f0.yml
+  - create_d1_c1_f0.yml
+  - create_guest_invalid_d1_c1_f0.yml

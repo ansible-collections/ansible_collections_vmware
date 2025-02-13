@@ -1,0 +1,32 @@
+- block:
+  - include_tasks: '{{ test_playbook }}'
+  always:
+    - name: Collect the list of the existing VM
+      vmware.vmware_rest.vcenter_vm_info:
+        vcenter_hostname: '{{ vcenter_hostname }}'
+        vcenter_username: '{{ vcenter_username }}'
+        vcenter_password: '{{ vcenter_password }}'
+        vcenter_validate_certs: false
+      register: existing_vms
+      until: existing_vms is not failed
+    - name: Turn off the VM
+      vmware.vmware_rest.vcenter_vm_power:
+        vcenter_hostname: '{{ vcenter_hostname }}'
+        vcenter_username: '{{ vcenter_username }}'
+        vcenter_password: '{{ vcenter_password }}'
+        vcenter_validate_certs: false
+        state: stop
+        vm: '{{ item.vm }}'
+      with_items: "{{ existing_vms.value }}"
+      ignore_errors: true
+    - name: Clean up VM
+      vmware.vmware_rest.vcenter_vm:
+        vcenter_hostname: '{{ vcenter_hostname }}'
+        vcenter_username: '{{ vcenter_username }}'
+        vcenter_password: '{{ vcenter_password }}'
+        vcenter_validate_certs: false
+        state: absent
+        vm: '{{ item.vm }}'
+      with_items: "{{ existing_vms.value }}"
+      when:
+        - not item.name.startswith("vCLS")
