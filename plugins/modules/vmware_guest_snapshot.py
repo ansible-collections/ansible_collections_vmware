@@ -13,7 +13,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: vmware_guest_snapshot
-short_description: Manages virtual machines snapshots in vCenter
+short_description: Manages virtual machines snapshots
 description:
     - This module can be used to create, delete and update snapshot(s) of the given virtual machine.
 author:
@@ -78,7 +78,7 @@ options:
    datacenter:
      description:
      - Destination datacenter for the deploy operation.
-     required: true
+     required: false
      type: str
    snapshot_name:
      description:
@@ -444,7 +444,7 @@ def main():
         moid=dict(type='str'),
         use_instance_uuid=dict(type='bool', default=False),
         folder=dict(type='str'),
-        datacenter=dict(required=True, type='str'),
+        datacenter=dict(type='str'),
         snapshot_name=dict(type='str'),
         snapshot_id=dict(type='int'),
         description=dict(type='str', default=''),
