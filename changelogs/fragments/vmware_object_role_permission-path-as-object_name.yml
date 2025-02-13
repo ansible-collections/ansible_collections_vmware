@@ -1,0 +1,2 @@
+minor_changes:
+  - vmware_object_role_permission - Allow passing a path as object_name to identify objects where the name is not unique

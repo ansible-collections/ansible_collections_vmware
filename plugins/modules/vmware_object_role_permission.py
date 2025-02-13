@@ -43,6 +43,8 @@ options:
   object_name:
     description:
     - The object name to assigned permission.
+    - You can also pass the full path to the object if the name is not unique
+    - A path must include the root-folder for the object-type, see example
     type: str
     required: true
   object_type:
@@ -128,6 +130,18 @@ EXAMPLES = r'''
     object_name: services
     state: present
   delegate_to: localhost
+
+- name: Assign domain user to VM folder /Test-VMs/Webserver
+  community.vmware.vmware_object_role_permission:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    role: Admin
+    principal: "vsphere.local\\Test-Webserver-Admin"
+    object_name: /vm/Test-VMs/Webserver
+    state: present
+  delegate_to: localhost
 '''
 
 RETURN = r'''
@@ -144,8 +158,8 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
-from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_obj
-
+from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_obj, compile_folder_path_for_object
+import os.path
 
 class VMwareObjectRolePermission(PyVmomi):
     def __init__(self, module):
@@ -282,9 +296,20 @@ class VMwareObjectRolePermission(PyVmomi):
             getattr(vim, self.params['object_type'])
         except AttributeError:
             self.module.fail_json(msg="Object type %s is not valid." % self.params['object_type'])
-        self.current_obj = find_obj(content=self.content,
-                                    vimtype=[getattr(vim, self.params['object_type'])],
-                                    name=self.params['object_name'])
+
+        if self.params['object_name'].startswith('/'):
+            object_path_elements = os.path.split(self.params['object_name'])
+            all_objects_with_name = find_obj(content=self.content,
+                                   vimtype=[getattr(vim, self.params['object_type'])],
+                                   name=object_path_elements[1],
+                                   first=False)
+            
+            found_obj = [obj for obj in all_objects_with_name if self.params['object_name'] == compile_folder_path_for_object(obj)]
+            self.current_obj = found_obj[0] if found_obj else None
+        else:
+            self.current_obj = find_obj(content=self.content,
+                                        vimtype=[getattr(vim, self.params['object_type'])],
+                                        name=self.params['object_name'])
 
         if self.current_obj is None:
             self.module.fail_json(
