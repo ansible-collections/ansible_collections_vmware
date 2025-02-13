@@ -2925,12 +2925,19 @@ class PyVmomiHelper(PyVmomi):
             cluster = None
 
         # get resource pools limiting search to cluster or datacenter
-        resource_pool = find_obj(self.content, [vim.ResourcePool], resource_pool_name, folder=cluster or datacenter)
-        if not resource_pool:
-            if resource_pool_name:
-                self.module.fail_json(msg='Unable to find resource_pool "%s"' % resource_pool_name)
+        resource_pool = find_obj(self.content, [vim.ResourcePool], None, folder=cluster or datacenter)
+        if not resource_pool:   
+            self.module.fail_json(msg='Unable to find resource pool, need esxi_hostname, resource_pool, or cluster')
+        resource_pool_path = resource_pool_name.split('/') if resource_pool_name else []
+        # filter path from empty items
+        rp_path_nodes = list(filter(None, resource_pool_path))
+        for i in range(len(rp_path_nodes)):
+            child = list(filter(lambda x: x.name == rp_path_nodes[i], resource_pool.resourcePool))
+            if len(child) != 1:
+                self.module.fail_json(msg='Unable to find node "%s" in resource pool path "%s"' % (rp_path_nodes[i], resource_pool_name))
+                break
             else:
-                self.module.fail_json(msg='Unable to find resource pool, need esxi_hostname, resource_pool, or cluster')
+                resource_pool = child[0]
         return resource_pool
 
     def deploy_vm(self):
