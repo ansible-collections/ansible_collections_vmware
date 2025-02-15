@@ -420,7 +420,7 @@ def main():
         supports_check_mode=True,
         required_one_of=[
             ['datastore', 'datastore_cluster'],
-            ['host', 'cluster'],
+            ['host', 'cluster', 'resource_pool'],
         ],
     )
 
