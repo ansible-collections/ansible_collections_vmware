@@ -10,7 +10,6 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-
 DOCUMENTATION = r'''
 ---
 module: vmware_vm_info
@@ -38,17 +37,30 @@ options:
       type: bool
     folder:
       description:
-        - Specify a folder location of VMs to gather information from.
-        - 'Examples:'
-        - '   folder: /ha-datacenter/vm'
-        - '   folder: ha-datacenter/vm'
-        - '   folder: /datacenter1/vm'
-        - '   folder: datacenter1/vm'
-        - '   folder: /datacenter1/vm/folder1'
-        - '   folder: datacenter1/vm/folder1'
-        - '   folder: /folder1/datacenter1/vm'
-        - '   folder: folder1/datacenter1/vm'
-        - '   folder: /folder1/datacenter1/vm/folder2'
+      - Specify a folder location of VMs to gather information from.
+      - Can't be used if O(cluster) is set.
+      - 'Examples:'
+      - '   folder: /ha-datacenter/vm'
+      - '   folder: ha-datacenter/vm'
+      - '   folder: /datacenter1/vm'
+      - '   folder: datacenter1/vm'
+      - '   folder: /datacenter1/vm/folder1'
+      - '   folder: datacenter1/vm/folder1'
+      - '   folder: /folder1/datacenter1/vm'
+      - '   folder: folder1/datacenter1/vm'
+      - '   folder: /folder1/datacenter1/vm/folder2'
+      type: str
+    vm_names:
+      description:
+      - List of the names of the virtual machines to get related configurations information from.
+      - Can´t be used if O(regex) is set.
+      type: list
+      elements: str
+    vm_name:
+      description:
+      - Name of the virtual machine to get related configurations information from.
+      - Or if O(regex) is True, it will be used as an Filter for the Names of the virtual machines.
+      - Can´t be used if O(cluster) or O(vm_names) is set.
       type: str
     show_cluster:
       description:
@@ -103,15 +115,27 @@ options:
         - Tags related to virtual machine are shown if set to V(true).
       default: false
       type: bool
+    show_notes:
+      description:
+        -Tags virtual machine's notes is shown if set to V(true).
+      default: false
+      type: bool
     show_allocated:
       description:
         - Allocated storage in byte and memory in MB are shown if it set to True.
       default: false
       type: bool
-    vm_name:
+    regex:
       description:
-        - Name of the virtual machine to get related configurations information from.
+        - If O(vm_name) is used as an Regex Filter.
+        - For Metacharacters use in the O(vm_name) show Python RegEx
+      type: bool
+      default: false
+    cluster:
+      description:
+      - Name of the cluster to gather information from VMs of this cluster.
       type: str
+      aliases: [ cluster_name ]
 extends_documentation_fragment:
 - community.vmware.vmware.documentation
 '''
@@ -127,6 +151,18 @@ EXAMPLES = r'''
 
 - debug:
     var: vm_info.virtual_machines
+
+- name: Gather all registered virtual machines of this cluster
+  community.vmware.vmware_vm_info:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    cluster: DC0_C0
+  delegate_to: localhost
+  register: vminfo
+
+- debug:
+    var: vminfo.virtual_machines
 
 - name: Gather one specific VM
   community.vmware.vmware_vm_info:
@@ -240,6 +276,8 @@ virtual_machines:
         "esxi_hostname": "10.76.33.226",
         "folder": "/Datacenter-1/vm",
         "guest_fullname": "Ubuntu Linux (64-bit)",
+        "running_guest_fullname": "Ubuntu Linux (64-bit)",
+        "running_guest_id": "ubuntu64Guest",
         "ip_address": "",
         "mac_address": [
             "00:50:56:87:a5:9a"
@@ -283,14 +321,16 @@ virtual_machines:
 '''
 
 try:
-    from pyVmomi import vim
+    from pyVmomi import vim, vmodl
+    import re
 except ImportError:
     pass
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, \
-    get_all_objs, vmware_argument_spec, _get_vm_prop, get_parent_datacenter, find_vm_by_name
+    get_all_objs, vmware_argument_spec, _get_vm_prop, get_parent_datacenter, find_vm_by_name, find_cluster_by_name
 from ansible_collections.community.vmware.plugins.module_utils.vmware_rest_client import VmwareRestClient
+import re
 
 
 class VmwareVmInfo(PyVmomi):
@@ -325,126 +365,155 @@ class VmwareVmInfo(PyVmomi):
                 self.module.fail_json(msg="Failed to find folder specified by %(folder)s" % self.params)
 
         vm_name = self.params.get('vm_name')
-        if vm_name:
+        if vm_name and not self.params.get('regex'):
             virtual_machine = find_vm_by_name(self.content, vm_name=vm_name, folder=folder_obj)
             if not virtual_machine:
                 self.module.fail_json(msg="Failed to find virtual machine %s" % vm_name)
             else:
                 virtual_machines = [virtual_machine]
         else:
-            virtual_machines = get_all_objs(self.content, [vim.VirtualMachine], folder=folder_obj)
+            cluster = self.params.get('cluster')
+            vm_names = self.params.get('vm_names')
+            if cluster:
+                cluster_obj = find_cluster_by_name(self.content, cluster_name=cluster)
+                if cluster_obj is None:
+                    self.module.fail_json(msg="Failed to find cluster '%s'" % cluster)
+
+                virtual_machines = []
+                for host in cluster_obj.host:
+                    virtual_machines.extend(host.vm)
+            else:
+                virtual_machines = get_all_objs(self.content, [vim.VirtualMachine], folder=folder_obj)
         _virtual_machines = []
 
         for vm in virtual_machines:
-            _ip_address = ""
-            summary = vm.summary
-            if summary.guest is not None:
-                _ip_address = summary.guest.ipAddress
-                if _ip_address is None:
-                    _ip_address = ""
-            _mac_address = []
-            if self.module.params.get('show_mac_address'):
-                all_devices = _get_vm_prop(vm, ('config', 'hardware', 'device'))
-                if all_devices:
-                    for dev in all_devices:
-                        if isinstance(dev, vim.vm.device.VirtualEthernetCard):
-                            _mac_address.append(dev.macAddress)
+            try:
+                if self.params.get('vm_names') and vm.name not in vm_names:
+                    continue
+                if self.params.get('regex') and not re.search(vm_name, vm.name):
+                    continue
 
-            net_dict = {}
-            if self.module.params.get('show_net'):
-                vmnet = _get_vm_prop(vm, ('guest', 'net'))
-                if vmnet:
-                    for device in vmnet:
-                        net_dict[device.macAddress] = dict()
-                        net_dict[device.macAddress]['ipv4'] = []
-                        net_dict[device.macAddress]['ipv6'] = []
-                        if device.ipConfig is not None:
-                            for ip_addr in device.ipConfig.ipAddress:
-                                if "::" in ip_addr.ipAddress:
-                                    net_dict[device.macAddress]['ipv6'].append(ip_addr.ipAddress + "/" + str(ip_addr.prefixLength))
-                                else:
-                                    net_dict[device.macAddress]['ipv4'].append(ip_addr.ipAddress + "/" + str(ip_addr.prefixLength))
+                _ip_address = ""
+                summary = vm.summary
+                if summary.guest is not None:
+                    _ip_address = summary.guest.ipAddress
+                    if _ip_address is None:
+                        _ip_address = ""
+                _mac_address = []
+                if self.module.params.get('show_mac_address'):
+                    all_devices = _get_vm_prop(vm, ('config', 'hardware', 'device'))
+                    if all_devices:
+                        for dev in all_devices:
+                            if isinstance(dev, vim.vm.device.VirtualEthernetCard):
+                                _mac_address.append(dev.macAddress)
 
-            esxi_hostname = None
-            esxi_parent = None
+                net_dict = {}
+                if self.module.params.get('show_net'):
+                    vmnet = _get_vm_prop(vm, ('guest', 'net'))
+                    if vmnet:
+                        for device in vmnet:
+                            net_dict[device.macAddress] = dict()
+                            net_dict[device.macAddress]['ipv4'] = []
+                            net_dict[device.macAddress]['ipv6'] = []
+                            if device.ipConfig is not None:
+                                for ip_addr in device.ipConfig.ipAddress:
+                                    if "::" in ip_addr.ipAddress:
+                                        net_dict[device.macAddress]['ipv6'].append(ip_addr.ipAddress + "/" + str(ip_addr.prefixLength))
+                                    else:
+                                        net_dict[device.macAddress]['ipv4'].append(ip_addr.ipAddress + "/" + str(ip_addr.prefixLength))
 
-            if self.module.params.get('show_esxi_hostname') or self.module.params.get('show_cluster'):
-                if summary.runtime.host:
-                    esxi_hostname = summary.runtime.host.summary.config.name
-                    esxi_parent = summary.runtime.host.parent
+                esxi_hostname = None
+                esxi_parent = None
+                note = None
 
-            cluster_name = None
-            if self.module.params.get('show_cluster'):
-                if esxi_parent and isinstance(esxi_parent, vim.ClusterComputeResource):
-                    cluster_name = summary.runtime.host.parent.name
+                if self.module.params.get('show_esxi_hostname') or self.module.params.get('show_cluster'):
+                    if summary.runtime.host:
+                        esxi_hostname = summary.runtime.host.summary.config.name
+                        esxi_parent = summary.runtime.host.parent
 
-            resource_pool = None
-            if self.module.params.get('show_resource_pool'):
-                if vm.resourcePool and vm.resourcePool != vm.resourcePool.owner.resourcePool:
-                    resource_pool = vm.resourcePool.name
+                cluster_name = None
+                if self.module.params.get('show_cluster'):
+                    if esxi_parent and isinstance(esxi_parent, vim.ClusterComputeResource):
+                        cluster_name = summary.runtime.host.parent.name
 
-            vm_attributes = dict()
-            if self.module.params.get('show_attribute'):
-                vm_attributes = self.get_vm_attributes(vm)
+                resource_pool = None
+                if self.module.params.get('show_resource_pool'):
+                    if vm.resourcePool and vm.resourcePool != vm.resourcePool.owner.resourcePool:
+                        resource_pool = vm.resourcePool.name
 
-            vm_tags = list()
-            if self.module.params.get('show_tag'):
-                vm_tags = self.get_tag_info(vm)
+                vm_attributes = dict()
+                if self.module.params.get('show_attribute'):
+                    vm_attributes = self.get_vm_attributes(vm)
 
-            allocated = {}
-            if self.module.params.get('show_allocated'):
-                storage_allocated = 0
-                for device in vm.config.hardware.device:
-                    if isinstance(device, vim.vm.device.VirtualDisk):
-                        storage_allocated += device.capacityInBytes
-                allocated = {
-                    "storage": storage_allocated,
-                    "cpu": vm.config.hardware.numCPU,
-                    "memory": vm.config.hardware.memoryMB}
+                vm_tags = list()
+                if self.module.params.get('show_tag'):
+                    vm_tags = self.get_tag_info(vm)
 
-            vm_folder = None
-            if self.module.params.get('show_folder'):
-                vm_folder = PyVmomi.get_vm_path(content=self.content, vm_name=vm)
+                if self.module.params.get('show_notes'):
+                    note = vm.summary.config.annotation
 
-            datacenter = None
-            if self.module.params.get('show_datacenter'):
-                datacenter = get_parent_datacenter(vm)
-            datastore_url = list()
-            if self.module.params.get('show_datastore'):
-                datastore_attributes = ('name', 'url')
-                vm_datastore_urls = _get_vm_prop(vm, ('config', 'datastoreUrl'))
-                if vm_datastore_urls:
-                    for entry in vm_datastore_urls:
-                        datastore_url.append({key: getattr(entry, key) for key in dir(entry) if key in datastore_attributes})
-            virtual_machine = {
-                "guest_name": summary.config.name,
-                "guest_fullname": summary.config.guestFullName,
-                "power_state": summary.runtime.powerState,
-                "ip_address": _ip_address,  # Kept for backward compatibility
-                "mac_address": _mac_address,  # Kept for backward compatibility
-                "uuid": summary.config.uuid,
-                "instance_uuid": summary.config.instanceUuid,
-                "vm_network": net_dict,
-                "esxi_hostname": esxi_hostname,
-                "datacenter": None if datacenter is None else datacenter.name,
-                "cluster": cluster_name,
-                "resource_pool": resource_pool,
-                "attributes": vm_attributes,
-                "tags": vm_tags,
-                "folder": vm_folder,
-                "moid": vm._moId,
-                "datastore_url": datastore_url,
-                "allocated": allocated
-            }
+                allocated = {}
+                if self.module.params.get('show_allocated'):
+                    storage_allocated = 0
+                    for device in vm.config.hardware.device:
+                        if isinstance(device, vim.vm.device.VirtualDisk):
+                            storage_allocated += device.capacityInBytes
+                    allocated = {
+                        "storage": storage_allocated,
+                        "cpu": vm.config.hardware.numCPU,
+                        "memory": vm.config.hardware.memoryMB}
 
-            vm_type = self.module.params.get('vm_type')
-            is_template = _get_vm_prop(vm, ('config', 'template'))
-            if vm_type == 'vm' and not is_template:
-                _virtual_machines.append(virtual_machine)
-            elif vm_type == 'template' and is_template:
-                _virtual_machines.append(virtual_machine)
-            elif vm_type == 'all':
-                _virtual_machines.append(virtual_machine)
+                vm_folder = None
+                if self.module.params.get('show_folder'):
+                    vm_folder = PyVmomi.get_vm_path(content=self.content, vm_name=vm)
+
+                datacenter = None
+                if self.module.params.get('show_datacenter'):
+                    datacenter = get_parent_datacenter(vm)
+                datastore_url = list()
+                if self.module.params.get('show_datastore'):
+                    datastore_attributes = ('name', 'url')
+                    vm_datastore_urls = _get_vm_prop(vm, ('config', 'datastoreUrl'))
+                    if vm_datastore_urls:
+                        for entry in vm_datastore_urls:
+                            datastore_url.append({key: getattr(entry, key) for key in dir(entry) if key in datastore_attributes})
+                virtual_machine = {
+                    "guest_name": summary.config.name,
+                    "guest_fullname": summary.config.guestFullName,
+                    "running_guest_fullname": summary.guest.guestFullName,
+                    "running_guest_id": summary.guest.guestId,
+                    "power_state": summary.runtime.powerState,
+                    "ip_address": _ip_address,  # Kept for backward compatibility
+                    "mac_address": _mac_address,  # Kept for backward compatibility
+                    "uuid": summary.config.uuid,
+                    "instance_uuid": summary.config.instanceUuid,
+                    "vm_network": net_dict,
+                    "esxi_hostname": esxi_hostname,
+                    "datacenter": None if datacenter is None else datacenter.name,
+                    "cluster": cluster_name,
+                    "resource_pool": resource_pool,
+                    "attributes": vm_attributes,
+                    "tags": vm_tags,
+                    "note": note,
+                    "folder": vm_folder,
+                    "moid": vm._moId,
+                    "datastore_url": datastore_url,
+                    "allocated": allocated
+                }
+
+                vm_type = self.module.params.get('vm_type')
+                is_template = _get_vm_prop(vm, ('config', 'template'))
+                if vm_type == 'vm' and not is_template:
+                    _virtual_machines.append(virtual_machine)
+                elif vm_type == 'template' and is_template:
+                    _virtual_machines.append(virtual_machine)
+                elif vm_type == 'all':
+                    _virtual_machines.append(virtual_machine)
+            except vmodl.fault.ManagedObjectNotFound:
+                continue
+
+        if _virtual_machines is None:
+            self.module.fail_json(msg="No virtual machines found.")
         return _virtual_machines
 
 
@@ -462,14 +531,21 @@ def main():
         show_net=dict(type='bool', default=True),
         show_resource_pool=dict(type='bool', default=True),
         show_tag=dict(type='bool', default=False),
+        show_notes=dict(type='bool', default=False),
         show_allocated=dict(type='bool', default=False),
         folder=dict(type='str'),
-        vm_name=dict(type='str')
+        cluster=dict(type='str', aliases=['cluster_name']),
+        vm_name=dict(type='str'),
+        vm_names=dict(type='list', elements='str'),
+        regex=dict(type='bool', default=False)
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
-        supports_check_mode=True
+        supports_check_mode=True,
+        mutually_exclusive=[
+            ['cluster', 'folder'], ['vm_name', 'vm_names', 'cluster'], ['vm_names', 'regex']
+        ]
     )
 
     vmware_vm_info = VmwareVmInfo(module)

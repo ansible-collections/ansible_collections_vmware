@@ -51,9 +51,8 @@ except ImportError:
     HAS_PYVMOMI = False
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.community.vmware.plugins.module_utils.vmware import (
-    HAS_PYVMOMI, connect_to_api, get_all_objs,
-    vmware_argument_spec, wait_for_task)
+from ansible_collections.community.vmware.plugins.module_utils.vmware import HAS_PYVMOMI, \
+    connect_to_api, get_all_objs, vmware_argument_spec, wait_for_task, find_vm_by_name
 
 
 class VMwareVmVssDvsMigrate(object):
@@ -77,13 +76,6 @@ class VMwareVmVssDvsMigrate(object):
         for dvspg in vmware_distributed_port_group:
             if dvspg.name == self.dvportgroup_name:
                 return dvspg
-        return None
-
-    def find_vm_by_name(self):
-        virtual_machines = get_all_objs(self.content, [vim.VirtualMachine])
-        for vm in virtual_machines:
-            if vm.name == self.vm_name:
-                return vm
         return None
 
     def migrate_network_adapter_vds(self):
@@ -118,7 +110,7 @@ class VMwareVmVssDvsMigrate(object):
 
     def check_vm_network_state(self):
         try:
-            self.vm = self.find_vm_by_name()
+            self.vm = find_vm_by_name(self.content, vm_name=self.vm_name)
 
             if self.vm is None:
                 self.module.fail_json(msg="A virtual machine with name %s does not exist" % self.vm_name)
