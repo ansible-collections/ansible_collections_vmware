@@ -1,0 +1,106 @@
+# Test code for the vmware_host_tcpip_stacks module.
+# Copyright: (c) 2021, sky-joker <sky.jokerxx@gmail.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Check grant read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    access: read-only
+    state: present
+  register: check_grant_read_only
+  diff: true
+  check_mode: true
+- name: Make sure if changes would occur
+  assert:
+    that:
+      - check_grant_read_only.changed is sameas true
+      - check_grant_read_only.diff is defined
+
+- name: Grant read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    access: read-only
+    state: present
+  register: grant_read_only
+  diff: true
+- name: Make sure if changes will occur
+  assert:
+    that:
+      - grant_read_only.changed is sameas true
+      - grant_read_only.diff is defined
+
+- name: Grant again read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    access: read-only
+    state: present
+  register: grant_again_read_only
+- name: Make sure if changes will not occur again
+  assert:
+    that:
+      - grant_again_read_only.changed is sameas false
+
+- name: Check revoke read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    state: absent
+  register: check_revoke_testuser
+  diff: true
+  check_mode: true
+- name: Make sure if changes would occur
+  assert:
+    that:
+      - check_revoke_testuser.changed is sameas true
+      - check_revoke_testuser.diff is defined
+
+- name: Grant read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    state: absent
+  register: revoke_testuser
+  diff: true
+- name: Make sure if changes will occur
+  assert:
+    that:
+      - revoke_testuser.changed is sameas true
+      - revoke_testuser.diff is defined
+
+- name: Grant again read-only permission on ESXi host
+  community.vmware.vmware_host_access_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ esxi1 }}"
+    user_name: testuser_0001
+    state: absent
+  register: revoke_again_testuser
+- name: Make sure if changes will not occur again
+  assert:
+    that:
+      - revoke_again_testuser.changed is sameas false

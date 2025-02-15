@@ -1,0 +1,32 @@
+# Test code for the vmware_host_access_info module.
+# Copyright: (c) 2022, Marius Rieder <marius.rieder@scs.ch>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- import_role:
+    name: prepare_vmware_tests
+  vars:
+    setup_attach_host: true
+
+- name: Get info about access from a single host
+  vmware_host_access_info:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    esxi_hostname: "{{ esxi_hosts[0] }}"
+  register: host_access_info
+
+- debug:
+    var: host_access_info
+
+- name: Get info about access from all hosts in a cluster
+  vmware_host_access_info:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    cluster_name: "{{ ccr1 }}"
+  register: host_access_info
+
+- debug:
+    var: host_access_info    

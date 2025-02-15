@@ -1,0 +1,14 @@
+# Test code for the vmware_host_access_manager module.
+# Copyright: (c) 2022, Marius Rieder <marius.rieder@scs.ch>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: add local user for the test
+  vmware_local_user_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    local_user_name: testuser_0001
+    local_user_password: "SamplePassword!"
+    state: present
+  ignore_errors: true

@@ -1,0 +1,14 @@
+# Test code for the vmware_host_access_manager module.
+# Copyright: (c) 2022, Marius Rieder <marius.rieder@scs.ch>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- import_role:
+    name: prepare_vmware_tests
+
+- name: include tasks pre.yml
+  include_tasks: pre.yml
+
+- block:
+  - include_tasks: vmware_host_access_manager_tests.yml
+  always:
+  - include_tasks: teardown.yml
