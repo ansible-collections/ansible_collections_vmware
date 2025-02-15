@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - vmware_cluster_ha - Add the possibility to set the heartbeat datastores of an cluster. (https://github.com/ansible-collections/community.vmware/pull/1732)
