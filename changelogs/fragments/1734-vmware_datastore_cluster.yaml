@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - vmware_datastore_cluster - Add automation levels, vm overrides, Space and IO Load Balance Config to this module.
+    (https://github.com/ansible-collections/community.vmware/pull/1734)
