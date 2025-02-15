@@ -1,0 +1,2 @@
+bugfixes:
+  - vmware_guest - Fix VMWare SDDC API from NVDS to VDS (https://github.com/ansible-collections/community.vmware/pull/1393).

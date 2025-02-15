@@ -1980,7 +1980,9 @@ class PyVmomiHelper(PyVmomi):
                 nic_change_detected = True
 
             net_obj = self.cache.get_network(network_name)
-            if hasattr(net_obj, 'portKeys'):
+            if hasattr(net_obj, 'portKeys') and \
+                hasattr(net_obj.config, 'logicalSwitchUuid') and \
+                    net_obj.config.logicalSwitchUuid is None:
                 # VDS switch
                 pg_obj = None
                 if 'dvswitch_name' in network_devices[key]:
@@ -2032,6 +2034,18 @@ class PyVmomiHelper(PyVmomi):
                 nic.device.backing = vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo()
                 nic.device.backing.port = dvs_port_connection
 
+            elif not isinstance(net_obj, vim.OpaqueNetwork) and \
+                hasattr(net_obj.config, 'logicalSwitchUuid') and \
+                    net_obj.config.logicalSwitchUuid:
+                # cover VMWare on AWS SDDC 1.16+
+                # https://kb.vmware.com/s/article/82487
+                nic.device.backing = vim.vm.device.VirtualEthernetCard.OpaqueNetworkBackingInfo()
+                network_id = net_obj.config.logicalSwitchUuid
+                nic.device.backing.opaqueNetworkType = 'nsx.LogicalSwitch'
+                nic.device.backing.opaqueNetworkId = network_id
+                nic.device.deviceInfo.summary = 'nsx.LogicalSwitch: %s' % network_id
+                nic_change_detected = True
+
             elif isinstance(net_obj, vim.OpaqueNetwork):
                 # NSX-T Logical Switch
                 nic.device.backing = vim.vm.device.VirtualEthernetCard.OpaqueNetworkBackingInfo()
@@ -2040,6 +2054,7 @@ class PyVmomiHelper(PyVmomi):
                 nic.device.backing.opaqueNetworkId = network_id
                 nic.device.deviceInfo.summary = 'nsx.LogicalSwitch: %s' % network_id
                 nic_change_detected = True
+                
             else:
                 # vSwitch
                 if not isinstance(nic.device.backing, vim.vm.device.VirtualEthernetCard.NetworkBackingInfo):
