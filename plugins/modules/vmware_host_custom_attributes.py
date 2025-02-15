@@ -16,6 +16,12 @@ description:
     - This module can be used to add, remove and update custom attributes for the given ESXi host.
 author:
     - Hunter Christain (@exp-hc)
+    - Hannes Ebelt (@hannesebelt)
+version_added: '1.11.0'
+notes:
+    - Tested on vSphere 6.7, 7.0
+requirements:
+    - PyVmomi
 options:
    esxi_hostname:
      description:
@@ -141,6 +147,24 @@ class HostAttributeManager(PyVmomi):
 
         return {'changed': changed, 'failed': False, 'custom_attributes': result_fields}
 
+    def remove_custom_field(self, host, user_fields):
+        result_fields = dict()
+        change_list = list()
+        changed = False
+
+        for field in user_fields:
+            field_key = self.check_exists(field['name'])
+            for k, v in [(x.name, v.value) for x in self.custom_field_mgr for v in host.customValue if x.key == v.key]:
+                if k == field['name']:
+                    if not self.module.check_mode:
+                        self.content.customFieldsManager.RemoveCustomFieldDef(key=field_key.key)
+                    change_list.append(True)
+
+        if any(change_list):
+            changed = True
+
+        return {'changed': changed, 'failed': False, 'custom_attributes': result_fields}
+
     def check_exists(self, field):
         for x in self.custom_field_mgr:
             # The custom attribute should be either global (managedObjectType == None) or host specific
@@ -182,7 +206,7 @@ def main():
         if module.params['state'] == "present":
             results = pyv.set_custom_field(host, module.params['attributes'])
         elif module.params['state'] == "absent":
-            results = pyv.set_custom_field(host, module.params['attributes'])
+            results = pyv.remove_custom_field(host, module.params['attributes'])
         module.exit_json(**results)
     else:
         # host does not exists

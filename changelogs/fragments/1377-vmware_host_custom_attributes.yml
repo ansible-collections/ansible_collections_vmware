@@ -1,0 +1,2 @@
+bugfixes:
+  - vmware_host_custom_attributes - Fix absent function for removing custom attribute.
