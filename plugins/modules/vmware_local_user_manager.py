@@ -36,6 +36,12 @@ options:
             - Description for the user.
         required: false
         type: str
+    local_user_shell_access:
+        description:
+            - Defined if user grants shell access.
+        required: false
+        default: true
+        type: bool
     state:
         description:
             - Indicate desired state of the user. If the user already exists when V(present), the user info is updated
@@ -55,6 +61,7 @@ EXAMPLES = r'''
     password: vmware
     local_user_name: foo
     local_user_password: password
+    local_user_shell_access: true
   delegate_to: localhost
 '''
 
@@ -76,6 +83,7 @@ class VMwareLocalUserManager(PyVmomi):
         self.local_user_name = self.module.params['local_user_name']
         self.local_user_password = self.module.params['local_user_password']
         self.local_user_description = self.module.params['local_user_description']
+        self.local_user_shell_access = self.module.params['local_user_shell_access']
         self.state = self.module.params['state']
 
         if self.is_vcenter():
@@ -125,6 +133,7 @@ class VMwareLocalUserManager(PyVmomi):
         account_spec.id = self.local_user_name
         account_spec.password = self.local_user_password
         account_spec.description = self.local_user_description
+        account_spec.shellAccess = self.local_user_shell_access
         return account_spec
 
     def state_create_user(self):
@@ -167,6 +176,7 @@ def main():
     argument_spec.update(dict(local_user_name=dict(required=True, type='str'),
                               local_user_password=dict(type='str', no_log=True),
                               local_user_description=dict(type='str'),
+                              local_user_shell_access=dict(type='bool', default=True),
                               state=dict(default='present', choices=['present', 'absent'], type='str')))
 
     module = AnsibleModule(argument_spec=argument_spec,
