@@ -731,14 +731,19 @@ class PyVmomiHelper(PyVmomi):
                 diff['after'].update(
                     {
                         nic_mac: {
-                            'vlan_id': self._get_vlanid_from_network(network_obj),
-                            'network_name': network_obj.name,
                             'label': label,
                             'mac_address': nic_mac,
                             'unit_number': 40000
                         }
                     }
                 )
+                if network_obj:
+                    diff['after'][nic_mac].update(
+                        {
+                            'vlan_id': self._get_vlanid_from_network(network_obj),
+                            'network_name': network_obj.name
+                        }
+                    )
 
         if self.module.check_mode:
             network_info = [diff['after'][i] for i in diff['after']]
