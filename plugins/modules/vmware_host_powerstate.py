@@ -104,6 +104,8 @@ result:
     }
 '''
 
+import time
+import datetime
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, wait_for_task, TaskError
 from ansible.module_utils._text import to_native
@@ -174,6 +176,21 @@ class VmwareHostPowerManager(PyVmomi):
                         results['result'][host.name]['msg'] = verb
                     else:
                         results['result'][host.name]['error'] = result
+
+                    if state == 'reboot-host':
+                        timeout = datetime.timedelta(seconds=timeout)
+
+                        start_at = datetime.datetime.now()
+                        old_boot_time = host.runtime.bootTime
+
+                        while start_at + timeout > datetime.datetime.now():
+                            if host.runtime.bootTime and old_boot_time < host.runtime.bootTime:
+                                break
+                            time.sleep(5)
+
+                        if not host.runtime.bootTime or old_boot_time >= host.runtime.bootTime:
+                            self.module.fail_json(msg="Current host system '%s' has not rebooted successfully." % (host.name))
+
                 except TaskError as task_error:
                     self.module.fail_json(msg="Failed to %s as host system due to : %s" % (verb,
                                                                                            str(task_error)))
