@@ -947,6 +947,48 @@ EXAMPLES = r'''
         touch /tmp/touch-from-playbook
   delegate_to: localhost
 
+# you can initialize the metadata template to a variable as
+# follows.
+# - name: set the cloud-init templates
+#   ansible.builtin.set_fact:
+#     vm_cloud_init_metadata: |
+#       local-hostname: {{ vm_name }}
+#       instance-id: {{ vm_name }}
+#       network:
+#         version: 2
+#         ethernets:
+#           ens192:
+#             dhcp4: false #true to use dhcp
+#             addresses:
+#               - "192.168.10.11/24"
+#             gateway4: "192.168.10.1"
+#             nameserver:
+#               addresses: ['192.168.0.53', '192.168.0.54']
+#
+- name:  Clone a virtual machine from Linux template with cloudinit (DataSourceVMware)
+  community.vmware.vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    state: present
+    template: "linux_template"
+    name: "{{ vm_name }}"
+    cluster: DC1_C1
+    networks:
+      - name: VM Network
+    advanced_settings:
+      - key: "guestInfo.metadata"
+       value: "{{ vm_cloud_init_metadata | b64encode }}"
+      - key: "guestInfo.metadata.encoding"
+        value: "base64"
+      - key: "guestInfo.userdata"
+        value: "{{ vm_cloud_init_userdata | b64encode }}"
+      - key: "guestInfo.userdata.encoding"
+        value: "base64"
+    wait_for_ip_address: True
+  delegate_to: localhost
+
 - name: Rename a virtual machine (requires the virtual machine's uuid)
   community.vmware.vmware_guest:
     hostname: "{{ vcenter_hostname }}"
