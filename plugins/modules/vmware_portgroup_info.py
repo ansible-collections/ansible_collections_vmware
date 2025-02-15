@@ -162,7 +162,7 @@ class PortgroupInfoManager(PyVmomi):
                 else:
                     pg_info_dict['failover_active'] = spec.policy.nicTeaming.nicOrder.activeNic
                     pg_info_dict['failover_standby'] = spec.policy.nicTeaming.nicOrder.standbyNic
-                if spec.policy.nicTeaming.failureCriteria is None:
+                if spec.policy.nicTeaming.failureCriteria is None or spec.policy.nicTeaming.failureCriteria.checkBeacon is None:
                     pg_info_dict['failure_detection'] = "No override"
                 else:
                     if spec.policy.nicTeaming.failureCriteria.checkBeacon:

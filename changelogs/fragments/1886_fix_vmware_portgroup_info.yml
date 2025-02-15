@@ -1,0 +1,2 @@
+bugfixes:
+  - vmware_portgroup_info - fix issue when failure_detection is reported as 'link_status_only' instad of 'No override'
