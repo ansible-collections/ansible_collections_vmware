@@ -498,6 +498,13 @@ class BaseVMwareInventory:
             # Disable warning shown at stdout
             requests.packages.urllib3.disable_warnings()
 
+        if self.proxy_host and self.proxy_port:
+            proxies = {
+                'http': f'http://{self.proxy_host}:{self.proxy_port}',
+                'https': f'http://{self.proxy_host}:{self.proxy_port}',
+            }
+            session.proxies.update(proxies)
+
         server = self.hostname
         if self.port:
             server += ":" + str(self.port)
