@@ -2799,7 +2799,7 @@ class PyVmomiHelper(PyVmomi):
 
                     if (ds.summary.freeSpace > datastore_freespace) or (ds.summary.freeSpace == datastore_freespace and not datastore):
                         # If datastore field is provided, filter destination datastores
-                        if self.params['disk'][0]['datastore'] and ds.name.find(self.params['disk'][0]['datastore']) < 0:
+                        if self.params['disk'][0]['datastore'] and not re.search(self.params['disk'][0]['datastore'], ds.name):
                             continue
 
                         datastore = ds

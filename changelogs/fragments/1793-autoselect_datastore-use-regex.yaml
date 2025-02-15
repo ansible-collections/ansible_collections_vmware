@@ -1,0 +1,2 @@
+minor_changes:
+  - autoselect_datastore-use-regex - when using autoselect_datastore, use re.search() to match the datastore instead of substring .find()
