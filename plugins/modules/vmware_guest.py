@@ -83,6 +83,13 @@ options:
     - Whether to use the VMware instance UUID rather than the BIOS UUID.
     default: false
     type: bool
+  force_reconfigure:
+    description:
+    - By default reconfiguration, only happens when the VM is in a "present" state.
+    - When C(force_reconfigure) is true and If the reconfigure process requires a shutdown, the module will power down the VM, apply the changes, and then start it.
+    default: false
+    type: bool
+    version_added: '4.1.1'
   template:
     description:
     - Template or existing virtual machine used to create new virtual machine.
@@ -1225,6 +1232,7 @@ class PyVmomiHelper(PyVmomi):
         self.tracked_changes = {}     # dict of changes made or would-be-made in check mode, updated when change_applied is set
         self.customspec = None
         self.cache = PyVmomiCache(self.content, dc_name=self.params['datacenter'])
+        self.force_reconfigure_shutdown_require = False
 
     def gather_facts(self, vm):
         return gather_vm_facts(self.content, vm)
@@ -1349,16 +1357,27 @@ class PyVmomiHelper(PyVmomi):
 
     def configure_cpu_and_memory(self, vm_obj, vm_creation=False):
         # set cpu/memory/etc
+        self.force_reconfigure_shutdown_require = False
         num_cpus = self.params['hardware']['num_cpus']
         if num_cpus is not None:
             # check VM power state and cpu hot-add/hot-remove state before re-config VM
             # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
-            if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and not self.module.check_mode:
+            if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and not self.module.check_mode and not self.params['force_reconfigure']:
                 if not vm_obj.config.cpuHotRemoveEnabled and num_cpus < vm_obj.config.hardware.numCPU:
-                    self.module.fail_json(msg="Configured cpu number is less than the cpu number of the VM, "
+                    if self.params['force_reconfigure']:
+                        self.module.warn("Configured cpu number is more than the cpu number of the VM, "
+                                         "cpuHotRemove is not enabled, force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                        self.force_reconfigure_shutdown_require = True
+                    else:
+                        self.module.fail_json(msg="Configured cpu number is less than the cpu number of the VM, "
                                               "cpuHotRemove is not enabled")
                 if not vm_obj.config.cpuHotAddEnabled and num_cpus > vm_obj.config.hardware.numCPU:
-                    self.module.fail_json(msg="Configured cpu number is more than the cpu number of the VM, "
+                    if self.params['force_reconfigure']:
+                        self.module.warn("Configured cpu number is more than the cpu number of the VM, "
+                                         "cpuHotAdd is not enabled, force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                        self.force_reconfigure_shutdown_require = True
+                    else:
+                        self.module.fail_json(msg="Configured cpu number is more than the cpu number of the VM, "
                                               "cpuHotAdd is not enabled")
 
             num_cpu_cores_per_socket = self.params['hardware']['num_cpu_cores_per_socket']
@@ -1381,11 +1400,20 @@ class PyVmomiHelper(PyVmomi):
             # check VM power state and memory hotadd state before re-config VM
             if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn:
                 if vm_obj.config.memoryHotAddEnabled and memory_mb < vm_obj.config.hardware.memoryMB:
-                    self.module.fail_json(msg="Configured memory is less than memory size of the VM, "
+                    if self.params['force_reconfigure']:
+                        self.module.warn("Configured memory is less than memory size of the VM, "
+                                         "operation is not supported, force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                        self.force_reconfigure_shutdown_require = True
+                    else:
+                        self.module.fail_json(msg="Configured memory is less than memory size of the VM, "
                                               "operation is not supported")
                 # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
                 elif not vm_obj.config.memoryHotAddEnabled and memory_mb != vm_obj.config.hardware.memoryMB and not self.module.check_mode:
-                    self.module.fail_json(msg="memoryHotAdd is not enabled")
+                    if self.params['force_reconfigure']:
+                        self.module.warn("memoryHotAdd is not enabled, force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                        self.force_reconfigure_shutdown_require = True
+                    else:
+                        self.module.fail_json(msg="memoryHotAdd is not enabled")
             if vm_obj is None or memory_mb != vm_obj.config.hardware.memoryMB:
                 self.change_detected = True
                 self.configspec.memoryMB = memory_mb
@@ -1398,7 +1426,12 @@ class PyVmomiHelper(PyVmomi):
             # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
             if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and \
                     vm_obj.config.memoryHotAddEnabled != hotadd_memory and not self.module.check_mode:
-                self.module.fail_json(msg="Configure hotadd memory operation is not supported when VM is power on")
+                if self.params['force_reconfigure']:
+                    self.module.warn("Configure hotadd memory operation is not supported when VM is power on"
+                                     ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                    self.force_reconfigure_shutdown_require = True
+                else:
+                    self.module.fail_json(msg="Configure hotadd memory operation is not supported when VM is power on")
             if vm_obj is None or hotadd_memory != vm_obj.config.memoryHotAddEnabled:
                 self.change_detected = True
                 self.configspec.memoryHotAddEnabled = hotadd_memory
@@ -1408,7 +1441,12 @@ class PyVmomiHelper(PyVmomi):
             # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
             if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and \
                     vm_obj.config.cpuHotAddEnabled != hotadd_cpu and not self.module.check_mode:
-                self.module.fail_json(msg="Configure hotadd cpu operation is not supported when VM is power on")
+                if self.params['force_reconfigure']:
+                    self.module.warn("Configure hotadd cpu operation is not supported when VM is power on"
+                                     ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                    self.force_reconfigure_shutdown_require = True
+                else:
+                    self.module.fail_json(msg="Configure hotadd cpu operation is not supported when VM is power on")
             if vm_obj is None or hotadd_cpu != vm_obj.config.cpuHotAddEnabled:
                 self.change_detected = True
                 self.configspec.cpuHotAddEnabled = hotadd_cpu
@@ -1418,7 +1456,12 @@ class PyVmomiHelper(PyVmomi):
             # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
             if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and \
                     vm_obj.config.cpuHotRemoveEnabled != hotremove_cpu and not self.module.check_mode:
-                self.module.fail_json(msg="Configure hotremove cpu operation is not supported when VM is power on")
+                if self.params['force_reconfigure']:
+                    self.module.warn("Configure hotremove cpu operation is not supported when VM is power on"
+                                     ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                    self.force_reconfigure_shutdown_require = True
+                else:
+                    self.module.fail_json(msg="Configure hotremove cpu operation is not supported when VM is power on")
             if vm_obj is None or hotremove_cpu != vm_obj.config.cpuHotRemoveEnabled:
                 self.change_detected = True
                 self.configspec.cpuHotRemoveEnabled = hotremove_cpu
@@ -1434,7 +1477,12 @@ class PyVmomiHelper(PyVmomi):
             # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
             if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and \
                     vm_obj.config.vPMCEnabled != vpmc_enabled and not self.module.check_mode:
-                self.module.fail_json(msg="Configure vPMC cpu operation is not supported when VM is power on")
+                if self.params['force_reconfigure']:
+                    self.module.warn("Configure vPMC cpu operation is not supported when VM is power on"
+                                     ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                    self.force_reconfigure_shutdown_require = True
+                else:
+                    self.module.fail_json(msg="Configure vPMC cpu operation is not supported when VM is power on")
             if vm_obj is None or vpmc_enabled != vm_obj.config.vPMCEnabled:
                 self.change_detected = True
                 self.configspec.vPMCEnabled = vpmc_enabled
@@ -1554,7 +1602,12 @@ class PyVmomiHelper(PyVmomi):
                     # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
                     if vm_obj and vm_obj.runtime.powerState == vim.VirtualMachinePowerState.poweredOn and \
                             isinstance(ctl_device, vim.vm.device.VirtualIDEController) and not self.module.check_mode:
-                        self.module.fail_json(msg='CD-ROM attach to IDE controller not support hot-add.')
+                        if self.params['force_reconfigure']:
+                            self.module.warn("CD-ROM attach to IDE controller not support hot-add."
+                                             ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                            self.force_reconfigure_shutdown_require = True
+                        else:
+                            self.module.fail_json(msg='CD-ROM attach to IDE controller not support hot-add.')
                     if len(ctl_device.device) == 2 and isinstance(ctl_device, vim.vm.device.VirtualIDEController):
                         self.module.fail_json(msg='Maximum number of CD-ROMs attached to IDE controller is 2.')
                     if len(ctl_device.device) == 30 and isinstance(ctl_device, vim.vm.device.VirtualAHCIController):
@@ -1579,7 +1632,12 @@ class PyVmomiHelper(PyVmomi):
                     # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
                     if vm_obj and vm_obj.runtime.powerState != vim.VirtualMachinePowerState.poweredOff and \
                             isinstance(ctl_device, vim.vm.device.VirtualIDEController) and not self.module.check_mode:
-                        self.module.fail_json(msg='CD-ROM attach to IDE controller not support hot-remove.')
+                        if self.params['force_reconfigure']:
+                            self.module.warn("CD-ROM attach to IDE controller not support hot-remove."
+                                             ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                            self.force_reconfigure_shutdown_require = True
+                        else:
+                            self.module.fail_json(msg='CD-ROM attach to IDE controller not support hot-remove.')
                     cdrom_spec = self.device_helper.remove_cdrom(cdrom_device)
                     self.change_detected = True
                     self.configspec.deviceChange.append(cdrom_spec)
@@ -1733,7 +1791,12 @@ class PyVmomiHelper(PyVmomi):
             if vm_obj and not vm_obj.config.template:
                 # Allow VM to be powered on during this check when in check mode, when no changes will actually be made
                 if vm_obj.runtime.powerState != vim.VirtualMachinePowerState.poweredOff and not self.module.check_mode:
-                    self.module.fail_json(msg="VM is not in power off state, can not do virtual NVDIMM configuration.")
+                    if self.params['force_reconfigure']:
+                        self.module.warn("VM is not in power off state, can not do virtual NVDIMM configuration."
+                                         ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                        self.force_reconfigure_shutdown_require = True
+                    else:
+                        self.module.fail_json(msg="VM is not in power off state, can not do virtual NVDIMM configuration.")
 
             nvdimm_ctl_exists = False
             if vm_obj and not vm_obj.config.template:
@@ -3250,6 +3313,8 @@ class PyVmomiHelper(PyVmomi):
             if self.module.check_mode:
                 self.change_applied = True
             else:
+                if self.force_reconfigure_shutdown_require:
+                    set_vm_power_state(self.content, self.current_vm_obj, 'poweredoff', force=False)
                 task = None
                 try:
                     task = self.current_vm_obj.ReconfigVM_Task(spec=self.configspec)
@@ -3319,7 +3384,12 @@ class PyVmomiHelper(PyVmomi):
             if self.current_vm_obj.config.template:
                 self.module.fail_json(msg="VM is template, not support guest OS customization.")
             if self.current_vm_obj.runtime.powerState != vim.VirtualMachinePowerState.poweredOff and not self.module.check_mode:
-                self.module.fail_json(msg="VM is not in poweroff state, can not do guest OS customization.")
+                if self.params['force_reconfigure']:
+                    self.module.warn("VM is not in poweroff state, can not do guest OS customization."
+                                     ", force_reconfigre is true. The virtual machine will be shut down to apply the changes.")
+                    self.force_reconfigure_shutdown_require = True
+                else:
+                    self.module.fail_json(msg="VM is not in poweroff state, can not do guest OS customization.")
             # TODO not sure if it is possible to query the current customspec to compare against the one being provided to check in check mode.
             # Maybe by breaking down the individual fields and querying, but it needs more research.
             # For now, assume changed...
@@ -3330,6 +3400,9 @@ class PyVmomiHelper(PyVmomi):
                 cus_result = self.customize_exist_vm()
                 if cus_result['failed']:
                     return cus_result
+
+        if self.force_reconfigure_shutdown_require:
+            set_vm_power_state(self.content, self.current_vm_obj, 'poweredon', force=False)
 
         vm_facts = self.gather_facts(self.current_vm_obj)
         return {'changed': self.change_applied, 'failed': False, 'instance': vm_facts, 'changes': self.tracked_changes}
@@ -3451,6 +3524,7 @@ def main():
         name_match=dict(type='str', choices=['first', 'last'], default='first'),
         uuid=dict(type='str'),
         use_instance_uuid=dict(type='bool', default=False),
+        force_reconfigure=dict(type='bool', default=False),
         folder=dict(type='str'),
         guest_id=dict(type='str'),
         disk=dict(
@@ -3618,7 +3692,7 @@ def main():
                 # has to be poweredoff first
                 set_vm_power_state(pyv.content, vm, 'poweredoff', module.params['force'])
             result = pyv.remove_vm(vm, module.params['delete_from_inventory'])
-        elif module.params['state'] == 'present':
+        elif module.params['state'] == 'present' or module.params['force_reconfigure']:
             # Note that check_mode is handled inside reconfigure_vm
             result = pyv.reconfigure_vm()
         elif module.params['state'] in ['poweredon', 'powered-on', 'poweredoff',

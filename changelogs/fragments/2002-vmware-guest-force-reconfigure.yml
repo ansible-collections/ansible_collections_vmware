@@ -1,0 +1,2 @@
+minor_changes:
+  - vsphere_guest - reconfigure vm whenever the power state is not present (https://github.com/ansible-collections/community.vmware/pull/2002).
