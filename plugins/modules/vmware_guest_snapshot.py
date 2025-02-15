@@ -59,27 +59,6 @@ options:
      - Whether to use the VMware instance UUID rather than the BIOS UUID.
      default: false
      type: bool
-   folder:
-     description:
-     - Destination folder, absolute or relative path to find an existing guest.
-     - This is required parameter, if O(name) is supplied.
-     - The folder should include the datacenter. ESX's datacenter is ha-datacenter.
-     - 'Examples:'
-     - '   folder: /ha-datacenter/vm'
-     - '   folder: ha-datacenter/vm'
-     - '   folder: /datacenter1/vm'
-     - '   folder: datacenter1/vm'
-     - '   folder: /datacenter1/vm/folder1'
-     - '   folder: datacenter1/vm/folder1'
-     - '   folder: /folder1/datacenter1/vm'
-     - '   folder: folder1/datacenter1/vm'
-     - '   folder: /folder1/datacenter1/vm/folder2'
-     type: str
-   datacenter:
-     description:
-     - Destination datacenter for the deploy operation.
-     required: true
-     type: str
    snapshot_name:
      description:
      - Sets the snapshot name to manage.
@@ -138,8 +117,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: present
       snapshot_name: snap1
@@ -151,8 +128,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: absent
       snapshot_name: snap1
@@ -163,8 +138,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: revert
       snapshot_name: snap1
@@ -175,8 +148,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: remove_all
     delegate_to: localhost
@@ -186,8 +157,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       moid: vm-42
       state: remove_all
     delegate_to: localhost
@@ -197,8 +166,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: present
       snapshot_name: dummy_vm_snap_0001
@@ -211,8 +178,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: absent
       remove_children: true
@@ -224,8 +189,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       snapshot_id: 10
       state: absent
@@ -236,8 +199,6 @@ EXAMPLES = r'''
       hostname: "{{ vcenter_hostname }}"
       username: "{{ vcenter_username }}"
       password: "{{ vcenter_password }}"
-      datacenter: "{{ datacenter_name }}"
-      folder: "/{{ datacenter_name }}/vm/"
       name: "{{ guest_name }}"
       state: present
       snapshot_name: current_snap_name
@@ -443,8 +404,6 @@ def main():
         uuid=dict(type='str'),
         moid=dict(type='str'),
         use_instance_uuid=dict(type='bool', default=False),
-        folder=dict(type='str'),
-        datacenter=dict(required=True, type='str'),
         snapshot_name=dict(type='str'),
         snapshot_id=dict(type='int'),
         description=dict(type='str', default=''),
@@ -456,9 +415,6 @@ def main():
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
-        required_together=[
-            ['name', 'folder']
-        ],
         required_one_of=[
             ['name', 'uuid', 'moid']
         ],
@@ -466,11 +422,6 @@ def main():
             ['snapshot_name', 'snapshot_id']
         ]
     )
-
-    if module.params['folder']:
-        # FindByInventoryPath() does not require an absolute path
-        # so we should leave the input folder path unmodified
-        module.params['folder'] = module.params['folder'].rstrip('/')
 
     pyv = PyVmomiHelper(module)
     # Check if the VM exists before continuing
