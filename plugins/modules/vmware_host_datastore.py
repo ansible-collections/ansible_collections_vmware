@@ -192,7 +192,7 @@ except ImportError:
     pass
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.community.vmware.plugins.module_utils.vmware import vmware_argument_spec, find_datastore_by_name, find_obj, wait_for_task
+from ansible_collections.community.vmware.plugins.module_utils.vmware import vmware_argument_spec, find_datastore_by_name, wait_for_task
 from ansible_collections.community.vmware.plugins.module_utils.vmware_sms import SMS
 from ansible.module_utils._text import to_native
 
@@ -221,7 +221,7 @@ class VMwareHostDatastore(SMS):
             if self.esxi is None:
                 self.module.fail_json(msg="Failed to find ESXi hostname %s" % self.esxi_hostname)
         else:
-            self.esxi = find_obj(self.content, [vim.HostSystem], None)
+            self.esxi = self.find_obj([vim.HostSystem], None)
 
     def process_state(self):
         ds_states = {

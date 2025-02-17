@@ -512,7 +512,7 @@ from random import randint
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
 from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, \
-    wait_for_task, find_obj, get_all_objs, get_parent_datacenter
+    wait_for_task, get_all_objs, get_parent_datacenter
 from ansible_collections.community.vmware.plugins.module_utils.vm_device_helper import PyVmomiDeviceHelper
 
 
@@ -782,7 +782,7 @@ class PyVmomiHelper(PyVmomi):
                             if disk['filename'] is None:
                                 if disk['datastore_cluster'] is not None:
                                     datastore_name = self.get_recommended_datastore(datastore_cluster_obj=disk['datastore_cluster'], disk_spec_obj=disk_spec)
-                                    disk['datastore'] = find_obj(self.content, [vim.Datastore], datastore_name)
+                                    disk['datastore'] = self.find_obj([vim.Datastore], datastore_name)
 
                                 disk_spec.fileOperation = vim.vm.device.VirtualDeviceSpec.FileOperation.create
                                 disk_spec.device.capacityInKB = disk['size']
@@ -945,8 +945,8 @@ class PyVmomiHelper(PyVmomi):
                                                   " disk index [%s]" % disk_index)
                     # Check if given value is datastore or datastore cluster
                     datastore_name = disk['datastore']
-                    datastore_cluster = find_obj(self.content, [vim.StoragePod], datastore_name)
-                    datastore = find_obj(self.content, [vim.Datastore], datastore_name)
+                    datastore_cluster = self.find_obj([vim.StoragePod], datastore_name)
+                    datastore = self.find_obj([vim.Datastore], datastore_name)
                     if datastore is None and datastore_cluster is None:
                         self.module.fail_json(msg="Failed to find datastore or datastore cluster named '%s' "
                                                   "in given configuration." % disk['datastore'])

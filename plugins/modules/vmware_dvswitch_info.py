@@ -173,7 +173,7 @@ try:
 except ImportError:
     pass
 
-from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_obj, find_object_by_name
+from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_object_by_name
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -194,7 +194,7 @@ class VMwareDvSwitchInfoManager(PyVmomi):
             if None in self.switch_objs:
                 self.switch_objs = None
         else:
-            self.switch_objs = find_obj(self.content, [vim.DistributedVirtualSwitch], '', first=False)
+            self.switch_objs = self.find_obj([vim.DistributedVirtualSwitch], '', first=False)
 
     def all_info(self):
         distributed_virtual_switches = []

@@ -1147,6 +1147,21 @@ class PyVmomi(object):
         else:
             self.module.fail_json(msg=f"Unable to obtain certificate fingerprint for host: {fqdn}")
 
+    def find_obj(self, vimtype, name, first=True, folder=None):
+        container = self.content.viewManager.CreateContainerView(folder or self.content.rootFolder, recursive=True, type=vimtype)
+        # Get all objects matching type (and name if given)
+        obj_list = [obj for obj in container.view if not name or to_text(unquote(obj.name)) == to_text(unquote(name))]
+        container.Destroy()
+
+        # Return first match or None
+        if first:
+            if obj_list:
+                return obj_list[0]
+            return None
+
+        # Return all matching objects or empty list
+        return obj_list
+
     def get_managed_objects_properties(self, vim_type, properties=None):
         """
         Look up a Managed Object Reference in vCenter / ESXi Environment

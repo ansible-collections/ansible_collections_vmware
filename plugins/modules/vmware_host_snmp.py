@@ -184,7 +184,7 @@ except ImportError:
     HAS_PYVMOMI = False
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec, find_obj
+from ansible_collections.community.vmware.plugins.module_utils.vmware import PyVmomi, vmware_argument_spec
 from ansible.module_utils._text import to_native
 
 
@@ -214,7 +214,7 @@ class VmwareHostSnmp(PyVmomi):
                     if self.hosts is None:
                         self.module.fail_json(msg="Failed to find host system.")
         else:
-            host = find_obj(self.content, [vim.HostSystem], None)
+            host = self.find_obj([vim.HostSystem], None)
             self.hosts = list()
             self.hosts.append(host)
 

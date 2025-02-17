@@ -1115,7 +1115,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.network import is_mac
 from ansible.module_utils._text import to_text, to_native
 from ansible_collections.community.vmware.plugins.module_utils.vmware import (
-    find_obj,
     gather_vm_facts,
     get_all_objs,
     compile_folder_path_for_object,
@@ -1143,13 +1142,13 @@ class PyVmomiCache(PyVmomi):
         self.esx_hosts = {}
         self.parent_datacenters = {}
 
-    def find_obj(self, content, types, name, confine_to_datacenter=True):
-        """ Wrapper around find_obj to set datacenter context """
-        result = find_obj(content, types, name)
+    def find_obj_wrapper(self, types, name, confine_to_datacenter=True):
+        """ Wrapper around PyVmomi.find_obj to set datacenter context """
+        result = self.find_obj(types, name)
         if result and confine_to_datacenter:
             if to_text(self.get_parent_datacenter(result).name) != to_text(self.dc_name):
                 result = None
-                objects = self.get_all_objs(content, types, confine_to_datacenter=True)
+                objects = self.get_all_objs(self.content, types, confine_to_datacenter=True)
                 for obj in objects:
                     if name is None or to_text(obj.name) == to_text(name):
                         return obj
@@ -1180,19 +1179,19 @@ class PyVmomiCache(PyVmomi):
             if len(networks) == 1:
                 self.networks[network_name] = networks[0]
             else:
-                self.networks[network_name] = self.find_obj(self.content, [vim.Network], network_name)
+                self.networks[network_name] = self.find_obj_wrapper([vim.Network], network_name)
 
         return self.networks[network_name]
 
     def get_cluster(self, cluster):
         if cluster not in self.clusters:
-            self.clusters[cluster] = self.find_obj(self.content, [vim.ClusterComputeResource], cluster)
+            self.clusters[cluster] = self.find_obj_wrapper([vim.ClusterComputeResource], cluster)
 
         return self.clusters[cluster]
 
     def get_esx_host(self, host):
         if host not in self.esx_hosts:
-            self.esx_hosts[host] = self.find_obj(self.content, [vim.HostSystem], host)
+            self.esx_hosts[host] = self.find_obj_wrapper([vim.HostSystem], host)
 
         return self.esx_hosts[host]
 
@@ -1954,7 +1953,7 @@ class PyVmomiHelper(PyVmomi):
                         if len(pgs) == 1:
                             pg = pgs[0]
                         else:
-                            pg = find_obj(self.content, [vim.DistributedVirtualPortgroup], network_name)
+                            pg = self.find_obj([vim.DistributedVirtualPortgroup], network_name)
                         if pg is None or nic.device.backing.port.portgroupKey != pg.key:
                             nic.device.deviceInfo.summary = network_name
                             nic_change_detected = True
@@ -1996,7 +1995,7 @@ class PyVmomiHelper(PyVmomi):
                     if len(networks) == 1:
                         pg_obj = networks[0]
                     else:
-                        pg_obj = self.cache.find_obj(self.content, [vim.dvs.DistributedVirtualPortgroup], network_name)
+                        pg_obj = self.cache.find_obj_wrapper([vim.dvs.DistributedVirtualPortgroup], network_name)
 
                 # TODO: (akasurde) There is no way to find association between resource pool and distributed virtual portgroup
                 # For now, check if we are able to find distributed virtual switch
@@ -2781,13 +2780,13 @@ class PyVmomiHelper(PyVmomi):
                     for host in cluster.host:
                         for mi in host.configManager.storageSystem.fileSystemVolumeInfo.mountInfo:
                             if mi.volume.type == "VMFS" or mi.volume.type == "NFS":
-                                datastores.append(self.cache.find_obj(self.content, [vim.Datastore], mi.volume.name))
+                                datastores.append(self.cache.find_obj_wrapper([vim.Datastore], mi.volume.name))
                 elif self.params['esxi_hostname']:
                     host = self.find_hostsystem_by_name(self.params['esxi_hostname'])
 
                     for mi in host.configManager.storageSystem.fileSystemVolumeInfo.mountInfo:
                         if mi.volume.type == "VMFS" or mi.volume.type == "NFS":
-                            datastores.append(self.cache.find_obj(self.content, [vim.Datastore], mi.volume.name))
+                            datastores.append(self.cache.find_obj_wrapper([vim.Datastore], mi.volume.name))
                 else:
                     datastores = self.cache.get_all_objs(self.content, [vim.Datastore])
                     datastores = [x for x in datastores if self.cache.get_parent_datacenter(x).name == self.params['datacenter']]
@@ -2809,12 +2808,12 @@ class PyVmomiHelper(PyVmomi):
             elif self.params['disk'][0]['datastore']:
                 datastore_name = self.params['disk'][0]['datastore']
                 # Check if user has provided datastore cluster first
-                datastore_cluster = self.cache.find_obj(self.content, [vim.StoragePod], datastore_name)
+                datastore_cluster = self.cache.find_obj_wrapper([vim.StoragePod], datastore_name)
                 if datastore_cluster:
                     # If user specified datastore cluster so get recommended datastore
                     datastore_name = self.get_recommended_datastore(datastore_cluster_obj=datastore_cluster)
                 # Check if get_recommended_datastore or user specified datastore exists or not
-                datastore = self.cache.find_obj(self.content, [vim.Datastore], datastore_name)
+                datastore = self.cache.find_obj_wrapper([vim.Datastore], datastore_name)
             else:
                 self.module.fail_json(msg="Either datastore or autoselect_datastore should be provided to select datastore")
 
@@ -2906,18 +2905,18 @@ class PyVmomiHelper(PyVmomi):
         resource_pool_name = resource_pool or self.params.get('resource_pool', None)
 
         # get the datacenter object
-        datacenter = find_obj(self.content, [vim.Datacenter], self.params['datacenter'])
+        datacenter = self.find_obj([vim.Datacenter], self.params['datacenter'])
         if not datacenter:
             self.module.fail_json(msg='Unable to find datacenter "%s"' % self.params['datacenter'])
 
         # if cluster is given, get the cluster object
         if cluster_name:
-            cluster = find_obj(self.content, [vim.ComputeResource], cluster_name, folder=datacenter)
+            cluster = self.find_obj([vim.ComputeResource], cluster_name, folder=datacenter)
             if not cluster:
                 self.module.fail_json(msg='Unable to find cluster "%s"' % cluster_name)
         # if host is given, get the cluster object using the host
         elif host_name:
-            host = find_obj(self.content, [vim.HostSystem], host_name, folder=datacenter)
+            host = self.find_obj([vim.HostSystem], host_name, folder=datacenter)
             if not host:
                 self.module.fail_json(msg='Unable to find host "%s"' % host_name)
             cluster = host.parent
@@ -2925,7 +2924,7 @@ class PyVmomiHelper(PyVmomi):
             cluster = None
 
         # get resource pools limiting search to cluster or datacenter
-        resource_pool = find_obj(self.content, [vim.ResourcePool], resource_pool_name, folder=cluster or datacenter)
+        resource_pool = self.find_obj([vim.ResourcePool], resource_pool_name, folder=cluster or datacenter)
         if not resource_pool:
             if resource_pool_name:
                 self.module.fail_json(msg='Unable to find resource_pool "%s"' % resource_pool_name)
@@ -2951,7 +2950,7 @@ class PyVmomiHelper(PyVmomi):
             self.folder = '/%(folder)s' % self.params
         self.folder = self.folder.rstrip('/')
 
-        datacenter = self.cache.find_obj(self.content, [vim.Datacenter], self.params['datacenter'])
+        datacenter = self.cache.find_obj_wrapper([vim.Datacenter], self.params['datacenter'])
         if datacenter is None:
             self.module.fail_json(msg='No datacenter named %(datacenter)s was found' % self.params)
 
@@ -3013,12 +3012,12 @@ class PyVmomiHelper(PyVmomi):
             # User may want to deploy VM to specific datastore.
             datastore_name = self.params['datastore']
             # Check if user has provided datastore cluster first
-            datastore_cluster = self.cache.find_obj(self.content, [vim.StoragePod], datastore_name)
+            datastore_cluster = self.cache.find_obj_wrapper([vim.StoragePod], datastore_name)
             if datastore_cluster:
                 # If user specified datastore cluster so get recommended datastore
                 datastore_name = self.get_recommended_datastore(datastore_cluster_obj=datastore_cluster)
             # Check if get_recommended_datastore or user specified datastore exists or not
-            datastore = self.cache.find_obj(self.content, [vim.Datastore], datastore_name)
+            datastore = self.cache.find_obj_wrapper([vim.Datastore], datastore_name)
         else:
             (datastore, datastore_name) = self.select_datastore(vm_obj)
 

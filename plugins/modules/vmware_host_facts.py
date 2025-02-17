@@ -232,7 +232,6 @@ from ansible.module_utils.common.text.formatters import bytes_to_human
 from ansible_collections.community.vmware.plugins.module_utils.vmware import (
     PyVmomi,
     vmware_argument_spec,
-    find_obj,
     ansible_date_time_facts
 )
 
@@ -257,7 +256,7 @@ class VMwareHostFactManager(PyVmomi):
             self.host = self.host[0]
             self.esxi_time = None
         else:
-            self.host = find_obj(self.content, [vim.HostSystem], None)
+            self.host = self.find_obj([vim.HostSystem], None)
             self.esxi_time = self.si.CurrentTime()
 
         if self.host is None:
